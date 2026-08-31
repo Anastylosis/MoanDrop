@@ -33,3 +33,12 @@ jobs:
       # Fingerprinting and ranking are local; the only network code is the
       # moansubs client, which the tests never call live. CI proves it.
       offline-isolation: true
+      # Fyne's OpenGL bindings are cgo: a plain GOOS/GOARCH cross-compile
+      # disables cgo and can never build them, so per-OS binaries come from
+      # the native platform-tests runners instead. The ubuntu jobs need the
+      # X11/GL/Wayland headers the stock runner image lacks.
+      cross-build-targets: '[]'
+      apt-packages: >-
+        libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev
+        libxinerama-dev libxi-dev libxxf86vm-dev libxkbcommon-dev
+        libwayland-dev wayland-protocols pkg-config
