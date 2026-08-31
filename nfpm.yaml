@@ -1,0 +1,14 @@
+name: moandrop
+arch: ${GOARCH}
+platform: linux
+version: ${VERSION}
+maintainer: Wasylq <wasylq@protonmail.com>
+description: Find and share subtitles for a video by what the file is, not what it's called
+vendor: Wasylq
+homepage: https://github.com/Anastylosis/MoanDrop
+license: GPL-3.0-only
+contents:
+  - src: dist/moandrop
+    dst: /usr/bin/moandrop
+  - src: contrib/linux/moandrop.desktop
+    dst: /usr/share/applications/moandrop.desktop
