@@ -85,6 +85,19 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
 - **Download**: click a track to write its sidecar beside the video. An
   existing sidecar is never replaced silently — a confirmation dialog asks
   first, same as `--overwrite` gates it on the CLI.
+- **Share**: below the results, a small "Share what you have" section lists
+  any subtitle files already sitting beside the video (the same
+  `<stem>.<lang>.srt` sidecar convention the window writes, read in
+  reverse) with a Share button per file; a "Share a subtitle..." button is
+  always there too, opening a file picker for anything discovery didn't
+  catch. Dropping a video together with one or more `.srt`/`.vtt` files
+  pairs them explicitly for sharing, even with unconventional filenames.
+  Sharing needs an account token — File → Account token… saves one in
+  Preferences; absent that, `MOANDROP_TOKEN` works too, so a CLI user's
+  env just works in the window (the preference wins when both are set). A
+  push that matches a subtitle already on the node reports that calmly
+  ("already on the node") rather than as an error — the server never
+  stores identical bytes twice.
 - **No ffmpeg**: a dialog gives the same guidance `match` prints, with a
   button to fall back to exact-file (oshash-only) matching instead of
   installing ffmpeg — the GUI equivalent of `--no-phash`.

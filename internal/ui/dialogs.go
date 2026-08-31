@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
@@ -63,4 +64,26 @@ func confirmOverwrite(win fyne.Window, path string, onConfirm func()) {
 
 func showError(win fyne.Window, err error) {
 	dialog.ShowError(err, win)
+}
+
+// askLanguage prompts for a subtitle's language when its filename carried
+// no parseable tag — the multi-file drop and manual-picker paths, where the
+// name is whatever the user happened to save it as. onLang is never called
+// on cancel or an empty entry.
+func askLanguage(win fyne.Window, subtitlePath string, onLang func(lang string)) {
+	entry := widget.NewEntry()
+	entry.SetPlaceHolder("e.g. en")
+	d := dialog.NewCustomConfirm(
+		fmt.Sprintf("Language for %s", filepath.Base(subtitlePath)),
+		"Share", "Cancel", entry, func(ok bool) {
+			if !ok {
+				return
+			}
+			lang := entry.Text
+			if lang == "" {
+				return
+			}
+			onLang(lang)
+		}, win)
+	d.Show()
 }
