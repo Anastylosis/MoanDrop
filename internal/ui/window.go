@@ -72,12 +72,12 @@ func (u *appUI) build() {
 	u.win.SetContent(content)
 	u.win.Resize(fyne.NewSize(720, 560))
 
+	// No Quit item: fyne appends its own locale-aware one to the File menu,
+	// and a hand-rolled second one shows up alongside it.
 	u.win.SetMainMenu(fyne.NewMainMenu(
 		fyne.NewMenu("File",
 			fyne.NewMenuItem("Open Video…", u.openVideoDialog),
 			fyne.NewMenuItem("Server…", u.promptServerURL),
-			fyne.NewMenuItemSeparator(),
-			fyne.NewMenuItem("Quit", u.app.Quit),
 		),
 	))
 }
