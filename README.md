@@ -60,6 +60,43 @@ moandrop push "Some Scene (1080p).mp4" "Some Scene (1080p).en.srt"
 Exit codes: `0` success, `1` error, `2` no match — so a file-manager script
 can tell "nothing found" from "something broke".
 
+## GUI (desktop window)
+
+Run `moandrop` with no arguments to open the window — a drop target and a
+candidate list, not an application. Run `moandrop "Some Scene.mp4"` to open
+it preloaded with that file and start matching immediately (this is the
+form a file manager's "Open with" runs, `moandrop "%f"`).
+
+- **Find a video**: drag it onto the window, or use File → Open Video….
+- **First run**: a one-time 18+ confirmation, matching the server's own
+  age gate on every human-facing page. Declining exits the app; accepting
+  is remembered.
+- **Privacy**: the window always shows the same claim the CLI prints
+  before fingerprinting — "the video never leaves this machine" — fingerprints
+  only ever leave the machine, never the file.
+- **Server**: File → Server… sets the moansubs node to query, saved for
+  next launch; it defaults to the same node the CLI does
+  (`https://moansubs.org`).
+- **Results**: each release shows the same evidence wording as `match`
+  (byte-identical, a verified/estimated/unknown-sync sibling cut, and so
+  on), and every track lists its language. A generated track carries an
+  "AI" badge; click it for the same explainer the CLI prints under a
+  result list. Human-made tracks sort first.
+- **Download**: click a track to write its sidecar beside the video. An
+  existing sidecar is never replaced silently — a confirmation dialog asks
+  first, same as `--overwrite` gates it on the CLI.
+- **No ffmpeg**: a dialog gives the same guidance `match` prints, with a
+  button to fall back to exact-file (oshash-only) matching instead of
+  installing ffmpeg — the GUI equivalent of `--no-phash`.
+
+### Build notes
+
+The GUI needs CGO (Fyne's OpenGL/window-system bindings) and, on Linux,
+X11/Wayland/GL development headers at build time — the headless CLI has
+none of these requirements. On Windows, build with
+`-ldflags -H=windowsgui` to suppress the console window the GUI would
+otherwise open behind it; this repo's release builds don't do this yet.
+
 ### What the results mean
 
 - **exact** — byte-identical file. The subtitle fits.
@@ -75,11 +112,10 @@ can tell "nothing found" from "something broke".
 
 ## Status
 
-Headless CLI (this binary) is the working core, with ffmpeg auto-download
-already in place. Planned, in order: a drag-and-drop desktop window over
-the same engine, then file-manager integration (right-click → find
-subtitles). The engine lives in `internal/core` so the window and the CLI
-cannot drift apart.
+The headless CLI and the desktop window (see above) both wrap the same
+`internal/core` engine, so they cannot drift apart, and ffmpeg
+auto-download is in place for both. Planned next: file-manager
+integration (right-click → find subtitles).
 
 ## Privacy & scope
 
