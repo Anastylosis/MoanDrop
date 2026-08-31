@@ -20,13 +20,15 @@ func (u *appUI) startVideo(path string) {
 		return
 	}
 	u.videoPath = path
+	u.matchGen++
+	gen := u.matchGen
 	u.setStatus("")
 	u.list.RemoveAll()
 	u.list.Refresh()
 
 	ffmpeg, ffprobe, err := core.FindFFmpeg("", "")
 	if err == nil {
-		u.runMatch(path, ffmpeg, ffprobe)
+		u.runMatch(gen, path, ffmpeg, ffprobe)
 		return
 	}
 
@@ -36,17 +38,20 @@ func (u *appUI) startVideo(path string) {
 	u.setStatus("fetching ffmpeg (downloaded once, then cached)...")
 	go func() {
 		ffmpeg, ffprobe, err := core.EnsureFFmpeg(context.Background(), "", "")
-		if err != nil {
-			fyne.Do(func() {
+		fyne.Do(func() {
+			if gen != u.matchGen {
+				return
+			}
+			if err != nil {
 				u.setBusy(false)
 				u.setStatus("")
 				showFFmpegMissing(u.win, err, func() {
-					u.runMatch(path, "", "")
+					u.runMatch(gen, path, "", "")
 				})
-			})
-			return
-		}
-		fyne.Do(func() { u.runMatch(path, ffmpeg, ffprobe) })
+				return
+			}
+			u.runMatch(gen, path, ffmpeg, ffprobe)
+		})
 	}()
 }
 
@@ -54,17 +59,21 @@ func (u *appUI) startVideo(path string) {
 // without --write: the default bucketed lookup, ranked client-side. Network
 // and CPU work runs off the UI goroutine; every widget touch is wrapped in
 // fyne.Do so it lands safely on the driver's own goroutine.
-func (u *appUI) runMatch(path, ffmpeg, ffprobe string) {
-	fyne.Do(func() {
-		u.setBusy(true)
-		u.setStatus(core.FingerprintingMessage)
-	})
+func (u *appUI) runMatch(gen int, path, ffmpeg, ffprobe string) {
+	if gen != u.matchGen {
+		return
+	}
+	u.setBusy(true)
+	u.setStatus(core.FingerprintingMessage)
 
 	go func() {
 		ctx := context.Background()
 		fp, err := core.FingerprintFile(ctx, ffmpeg, ffprobe, path)
 		if err != nil {
 			fyne.Do(func() {
+				if gen != u.matchGen {
+					return
+				}
 				u.setBusy(false)
 				u.setStatus("")
 				showError(u.win, err)
@@ -72,12 +81,19 @@ func (u *appUI) runMatch(path, ffmpeg, ffprobe string) {
 			return
 		}
 
-		fyne.Do(func() { u.setStatus("looking up...") })
+		fyne.Do(func() {
+			if gen == u.matchGen {
+				u.setStatus("looking up...")
+			}
+		})
 
 		c := client.New(serverURL(u.app.Preferences()), "")
 		releases, err := c.LookupBuckets(ctx, fp.OSHash, fp.PHash)
 		if err != nil {
 			fyne.Do(func() {
+				if gen != u.matchGen {
+					return
+				}
 				u.setBusy(false)
 				u.setStatus("")
 				showError(u.win, err)
@@ -87,6 +103,9 @@ func (u *appUI) runMatch(path, ffmpeg, ffprobe string) {
 
 		candidates := core.RankCandidates(releases, fp, false)
 		fyne.Do(func() {
+			if gen != u.matchGen {
+				return
+			}
 			u.setBusy(false)
 			if len(candidates) == 0 {
 				u.setStatus(core.NoMatchMessage)
@@ -106,30 +125,52 @@ func (u *appUI) runMatch(path, ffmpeg, ffprobe string) {
 // Runs off the UI goroutine like runMatch, for the same reason: a click
 // handler that blocks on the network freezes the whole window.
 func (u *appUI) downloadTrack(tr TrackRow) {
+	// downloadBusy is only touched on the UI goroutine (click handlers and
+	// fyne.Do callbacks), so a plain bool serializes downloads: without it,
+	// two quick clicks that resolve to the same sidecar can both pass
+	// WriteSidecar's existence check and the second silently replaces the
+	// first with no confirm dialog.
+	if u.downloadBusy {
+		return
+	}
+	u.downloadBusy = true
+	u.setStatus("downloading...")
 	c := client.New(serverURL(u.app.Preferences()), "")
-	u.attemptDownload(c, tr, false)
+	u.attemptDownload(c, u.videoPath, tr, false)
 }
 
-func (u *appUI) attemptDownload(c *client.Client, tr TrackRow, overwrite bool) {
+func (u *appUI) attemptDownload(c *client.Client, videoPath string, tr TrackRow, overwrite bool) {
 	go func() {
-		res, err := core.DownloadTrack(context.Background(), c, u.videoPath, tr.Track.ID, tr.ForRelease, tr.Track.Lang, overwrite)
+		res, err := core.DownloadTrack(context.Background(), c, videoPath, tr.Track.ID, tr.ForRelease, tr.Track.Lang, overwrite)
 		if err != nil {
 			if errors.Is(err, core.ErrSidecarExists) {
-				path := u.videoPath
+				path := videoPath
 				if lang, lerr := core.ResolveCaptionLang(tr.Track.Lang); lerr == nil {
-					path = core.SidecarPath(u.videoPath, lang)
+					path = core.SidecarPath(videoPath, lang)
 				}
 				fyne.Do(func() {
+					u.downloadBusy = false
+					u.setStatus("")
 					confirmOverwrite(u.win, path, func() {
-						u.attemptDownload(c, tr, true)
+						if u.downloadBusy {
+							return
+						}
+						u.downloadBusy = true
+						u.setStatus("downloading...")
+						u.attemptDownload(c, videoPath, tr, true)
 					})
 				})
 				return
 			}
-			fyne.Do(func() { showError(u.win, err) })
+			fyne.Do(func() {
+				u.downloadBusy = false
+				u.setStatus("")
+				showError(u.win, err)
+			})
 			return
 		}
 		fyne.Do(func() {
+			u.downloadBusy = false
 			u.setStatus(fmt.Sprintf("%s %s%s", res.Verb(), res.Path, res.Note()))
 		})
 	}()
