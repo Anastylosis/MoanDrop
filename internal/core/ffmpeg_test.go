@@ -43,6 +43,9 @@ func sha256Hex(b []byte) string {
 // directory and points PATH at it, so exec.LookPath(name) resolves.
 func makePathBinary(t *testing.T, name string) string {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		name += ".exe" // LookPath only resolves PATHEXT extensions there
+	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, name)
 	if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
@@ -50,6 +53,22 @@ func makePathBinary(t *testing.T, name string) string {
 	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	return path
+}
+
+// setTempCache points os.UserCacheDir at dir. UserCacheDir reads a
+// different variable per OS — XDG_CACHE_HOME only counts on linux, which
+// is how tests setting only that passed there while silently sharing the
+// real user cache (and each other's downloads) on windows/macos runners.
+func setTempCache(t *testing.T, dir string) {
+	t.Helper()
+	switch runtime.GOOS {
+	case "windows":
+		t.Setenv("LocalAppData", dir)
+	case "darwin":
+		t.Setenv("HOME", dir)
+	default:
+		t.Setenv("XDG_CACHE_HOME", dir)
+	}
 }
 
 func TestFindFFmpeg_ResolutionOrder(t *testing.T) {
@@ -102,7 +121,7 @@ func TestFindFFmpeg_ResolutionOrder(t *testing.T) {
 func TestEnsureFFmpeg_NoDownloadHonored(t *testing.T) {
 	t.Setenv("MOANDROP_NO_DOWNLOAD", "1")
 	t.Setenv("PATH", t.TempDir()) // nothing on PATH
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	setTempCache(t, t.TempDir())
 
 	build := ffBuild{version: "6.1"} // would panic if ever dereferenced for a download
 	_, _, err := ensureFFmpeg(context.Background(), "", "", build, true)
@@ -122,7 +141,7 @@ func TestEnsureFFmpeg_UnsupportedPlatformKeepsLocateError(t *testing.T) {
 func TestEnsureFFmpeg_CachedPriorDownload(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	cacheBase := t.TempDir()
-	t.Setenv("XDG_CACHE_HOME", cacheBase)
+	setTempCache(t, cacheBase)
 
 	build := ffBuild{version: "6.1", ffmpegName: "ffmpeg", ffprobeName: "ffprobe"}
 	dir, err := ffmpegCacheDir(build.version)
@@ -148,14 +167,14 @@ func TestEnsureFFmpeg_CachedPriorDownload(t *testing.T) {
 
 func TestEnsureFFmpeg_DownloadsAndExtracts(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	setTempCache(t, t.TempDir())
 
 	ffmpegZip := zipBytes(t, map[string]string{"ffmpeg": "fake-ffmpeg-bytes"})
 	ffprobeZip := zipBytes(t, map[string]string{"ffprobe": "fake-ffprobe-bytes"})
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/ffmpeg.zip", func(w http.ResponseWriter, r *http.Request) { w.Write(ffmpegZip) })
-	mux.HandleFunc("/ffprobe.zip", func(w http.ResponseWriter, r *http.Request) { w.Write(ffprobeZip) })
+	mux.HandleFunc("/ffmpeg.zip", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(ffmpegZip) })
+	mux.HandleFunc("/ffprobe.zip", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(ffprobeZip) })
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
@@ -208,7 +227,7 @@ func TestEnsureFFmpeg_DownloadsAndExtracts(t *testing.T) {
 
 func TestEnsureFFmpeg_SharedZipForBothBinaries(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	setTempCache(t, t.TempDir())
 
 	// Mirrors gyan.dev's essentials build layout: both binaries in one zip,
 	// nested under a bin/ subdirectory, matched by base name.
@@ -220,7 +239,7 @@ func TestEnsureFFmpeg_SharedZipForBothBinaries(t *testing.T) {
 	var hits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits++
-		w.Write(combined)
+		_, _ = w.Write(combined)
 	}))
 	defer srv.Close()
 
@@ -254,11 +273,11 @@ func TestEnsureFFmpeg_SharedZipForBothBinaries(t *testing.T) {
 
 func TestEnsureFFmpeg_ChecksumMismatchRejected(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	setTempCache(t, t.TempDir())
 
 	ffmpegZip := zipBytes(t, map[string]string{"ffmpeg": "fake-ffmpeg-bytes"})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(ffmpegZip)
+		_, _ = w.Write(ffmpegZip)
 	}))
 	defer srv.Close()
 
