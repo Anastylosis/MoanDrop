@@ -16,9 +16,8 @@ type TrackRow struct {
 	Tooltip    string // core.GeneratedExplainer when Badge is set
 }
 
-// CandidateRow is one release offered to the user, with its evidence
-// wording pre-built from core.EvidenceParts so the view layer never invents
-// its own phrasing.
+// CandidateRow is one release offered to the user; its evidence wording is
+// pre-built from core.EvidenceParts so the view layer never invents its own phrasing.
 type CandidateRow struct {
 	Release    client.Release
 	Confidence string
@@ -26,9 +25,8 @@ type CandidateRow struct {
 	Tracks     []TrackRow
 }
 
-// BuildCandidateRows turns ranked candidates into what the window renders.
-// Tracks keep the server's own order (human-made before generated, per
-// core.RankCandidates' contract) — nothing here re-sorts them.
+// BuildCandidateRows turns ranked candidates into what the window renders,
+// without re-sorting: tracks keep RankCandidates' order (human-made before generated).
 func BuildCandidateRows(candidates []core.Candidate) []CandidateRow {
 	rows := make([]CandidateRow, 0, len(candidates))
 	for _, c := range candidates {

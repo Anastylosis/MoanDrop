@@ -11,10 +11,8 @@ import (
 	"github.com/Anastylosis/MoanSubs/client"
 )
 
-// startVideo is the entry point for both a drop and File → Open Video…, and
-// for the video named on the command line. It always runs the pipeline
-// with ffmpeg first; ffmpegMissing offers the --no-phash fallback the CLI
-// exposes as a flag.
+// startVideo is the entry point for a drop, File → Open Video…, and the
+// video named on the command line.
 func (u *appUI) startVideo(path string) {
 	if path == "" {
 		return
@@ -55,10 +53,8 @@ func (u *appUI) startVideo(path string) {
 	}()
 }
 
-// runMatch fingerprints path and looks it up, mirroring match.go's runMatch
-// without --write: the default bucketed lookup, ranked client-side. Network
-// and CPU work runs off the UI goroutine; every widget touch is wrapped in
-// fyne.Do so it lands safely on the driver's own goroutine.
+// runMatch mirrors match.go's runMatch without --write. It runs off the UI
+// goroutine and wraps every widget touch in fyne.Do so results land safely.
 func (u *appUI) runMatch(gen int, path, ffmpeg, ffprobe string) {
 	if gen != u.matchGen {
 		return
@@ -118,18 +114,13 @@ func (u *appUI) runMatch(gen int, path, ffmpeg, ffprobe string) {
 	}()
 }
 
-// downloadTrack fetches tr's track and writes it beside the current video.
-// It tries the no-overwrite path first, so core.WriteSidecar's own
-// existence check is the single source of truth for "does a sidecar
-// already exist" — this never races a separate os.Stat done here first.
-// Runs off the UI goroutine like runMatch, for the same reason: a click
-// handler that blocks on the network freezes the whole window.
+// downloadTrack writes tr's track beside the video, off the UI goroutine so
+// a blocking download can't freeze the window. It never os.Stats first —
+// core.WriteSidecar's own existence check is the sole, race-free source of truth.
 func (u *appUI) downloadTrack(tr TrackRow) {
-	// downloadBusy is only touched on the UI goroutine (click handlers and
-	// fyne.Do callbacks), so a plain bool serializes downloads: without it,
-	// two quick clicks that resolve to the same sidecar can both pass
-	// WriteSidecar's existence check and the second silently replaces the
-	// first with no confirm dialog.
+	// downloadBusy serializes downloads (touched only on the UI goroutine):
+	// without it two quick clicks can both pass WriteSidecar's existence
+	// check, and the second silently replaces the first with no confirm dialog.
 	if u.downloadBusy {
 		return
 	}

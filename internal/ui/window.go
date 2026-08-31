@@ -12,9 +12,8 @@ import (
 	"github.com/Anastylosis/MoanDrop/internal/core"
 )
 
-// appUI holds the one window's live widgets. MoanDrop is "a drop target and
-// a candidate list", so there is exactly one of these per run — no
-// multi-document sprawl to manage.
+// appUI holds the one window's live widgets — MoanDrop is a single-window
+// app, so there is exactly one of these per run.
 type appUI struct {
 	app fyne.App
 	win fyne.Window
@@ -33,9 +32,8 @@ type appUI struct {
 	downloadBusy bool
 }
 
-// build wires up the window's permanent chrome: the privacy line, the drop
-// target, the busy indicator, the result list, and the menu. Called once,
-// after the age gate (if any) has already been resolved.
+// build wires up the window's permanent chrome. Called once, after the age
+// gate (if any) has already been resolved.
 func (u *appUI) build() {
 	u.win.SetMaster()
 	u.win.SetOnDropped(func(_ fyne.Position, uris []fyne.URI) {
@@ -131,9 +129,6 @@ func (u *appUI) setBusy(busy bool) {
 	}
 }
 
-// renderCandidates replaces the result list with one card per candidate
-// release: its confidence and evidence line, then one row per track with a
-// download button and, on a generated track, the AI badge.
 func (u *appUI) renderCandidates(rows []CandidateRow) {
 	u.list.RemoveAll()
 	sawGenerated := false

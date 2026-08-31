@@ -14,10 +14,9 @@ import (
 	"runtime"
 )
 
-// FindFFmpeg resolves the ffmpeg and ffprobe binaries to run, in order:
-// explicit paths (CLI flags), the MOANDROP_FFMPEG / MOANDROP_FFPROBE
-// environment variables, then PATH lookup. It never downloads — callers
-// that want the full locate-or-download behavior should use EnsureFFmpeg.
+// FindFFmpeg resolves ffmpeg and ffprobe, in order: explicit paths, then
+// MOANDROP_FFMPEG/MOANDROP_FFPROBE, then PATH. It never downloads — use
+// EnsureFFmpeg for that.
 func FindFFmpeg(explicitFFmpeg, explicitFFprobe string) (ffmpeg, ffprobe string, err error) {
 	ffmpeg, err = locate(explicitFFmpeg, "MOANDROP_FFMPEG", "ffmpeg")
 	if err != nil {
@@ -45,8 +44,8 @@ func locate(explicit, envVar, name string) (string, error) {
 }
 
 // ffBuild pins one auto-downloadable ffmpeg+ffprobe pair for a GOOS/GOARCH.
-// ffprobeURL is empty when ffprobe ships in the same zip as ffmpeg (gyan.dev's
-// essentials build); everywhere else the two are separate single-binary zips.
+// ffprobeURL is empty when ffprobe ships inside the ffmpeg zip (gyan.dev's
+// essentials build); otherwise the two are separate zips.
 type ffBuild struct {
 	version                   string
 	ffmpegURL, ffmpegSHA256   string
@@ -55,12 +54,9 @@ type ffBuild struct {
 	host, approxSize          string // for the download notice
 }
 
-// Pinned builds, one per supported GOOS/GOARCH. Versions were chosen so a
-// single bit-exactness harness run (mediahash's TestBitExact) covers linux,
-// but gyan.dev only mirrors its most recent release under a versioned URL —
-// older essentials builds, 6.1 included, have already fallen out of its
-// packages archive — so windows/amd64 is pinned to whatever gyan.dev
-// currently serves at a fixed version instead of matching 6.1.
+// Pinned builds, one per supported GOOS/GOARCH. gyan.dev only mirrors its
+// most recent release under a versioned URL, so windows/amd64 is pinned to
+// whatever it currently serves rather than the 6.1 used everywhere else.
 var ffBuilds = map[string]ffBuild{
 	"linux/amd64": {
 		version:       "6.1",
@@ -112,9 +108,8 @@ func init() {
 	ffBuilds["darwin/arm64"] = ffBuilds["darwin/amd64"]
 }
 
-// EnsureFFmpeg is FindFFmpeg extended with the two steps Stash also takes
-// before giving up: a prior cached download, then a fresh pinned download.
-// MOANDROP_NO_DOWNLOAD=1 disables both and falls back to FindFFmpeg's error.
+// EnsureFFmpeg extends FindFFmpeg with a cached, then a freshly pinned,
+// download. MOANDROP_NO_DOWNLOAD=1 disables both.
 func EnsureFFmpeg(ctx context.Context, explicitFFmpeg, explicitFFprobe string) (ffmpeg, ffprobe string, err error) {
 	build, ok := ffBuilds[runtime.GOOS+"/"+runtime.GOARCH]
 	return ensureFFmpeg(ctx, explicitFFmpeg, explicitFFprobe, build, ok)
@@ -165,10 +160,9 @@ func ffmpegCacheDir(version string) (string, error) {
 	return dir, nil
 }
 
-// ensure returns the cached path to the named binary, downloading and
-// extracting it first if it isn't already cached. When ffprobe ships in the
-// same zip as ffmpeg (ffprobeURL == ""), one download populates both names
-// so the second call finds its target already cached.
+// ensure returns the cached path to name, downloading and extracting first
+// if needed. When ffprobe ships in ffmpeg's own zip (ffprobeURL == ""), one
+// download populates both names so the second call finds its target cached.
 func (b ffBuild) ensure(ctx context.Context, cacheDir, name string) (string, error) {
 	target := filepath.Join(cacheDir, name)
 	if _, err := os.Stat(target); err == nil {
@@ -190,10 +184,9 @@ func (b ffBuild) ensure(ctx context.Context, cacheDir, name string) (string, err
 	return target, nil
 }
 
-// downloadAndExtract fetches url into a temp file in cacheDir, verifies its
-// sha256 before touching the archive, then extracts each entry in wanted
-// (matched by base name, so a bin/ subdirectory inside the zip is fine) to
-// cacheDir/<name>, chmod 0755, via a same-directory temp file and rename so
+// downloadAndExtract fetches url, verifies its sha256 before touching the
+// archive, then extracts each wanted entry (matched by base name, so a
+// bin/ subdirectory is fine) via a same-directory temp file and rename, so
 // a half-written binary is never observable at its final path.
 func downloadAndExtract(ctx context.Context, cacheDir, url, wantSHA256 string, wanted []string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

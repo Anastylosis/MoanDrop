@@ -4,8 +4,7 @@ package core
 // surfaces cannot drift onto different wording for the same event.
 
 // DefaultServerURL is the moansubs node both surfaces talk to absent an
-// override: the CLI's --server flag default, and the GUI's Preferences
-// fallback before a user ever sets one.
+// override — the CLI's --server default and the GUI's Preferences fallback.
 const DefaultServerURL = "https://moansubs.org"
 
 // PrivacyLine is the claim both surfaces make about fingerprinting: it
@@ -13,13 +12,11 @@ const DefaultServerURL = "https://moansubs.org"
 const PrivacyLine = "the video never leaves this machine"
 
 // FingerprintingMessage is printed (CLI) or shown as a busy status (GUI)
-// while FingerprintFile runs, which can take several seconds on a large
-// file.
+// while FingerprintFile runs — it can take several seconds on a large file.
 const FingerprintingMessage = "fingerprinting (" + PrivacyLine + ")..."
 
 // NoMatchMessage and NoPhashOnlyHint are the exit-2 "nothing found"
-// guidance; NoPhashOnlyHint only applies when the fingerprint has no phash
-// (oshash-only lookup).
+// guidance; NoPhashOnlyHint only applies to an oshash-only lookup (no phash).
 const (
 	NoMatchMessage  = "no match on the node for this file"
 	NoPhashOnlyHint = "(searched by exact file hash only — without --no-phash, other encodes of the same video would also be found)"

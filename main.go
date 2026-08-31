@@ -2,9 +2,6 @@
 // people who do not run Stash: drop (or name) a video file, get a matching
 // subtitle written beside it as `<stem>.<lang>.srt`, which Plex, Jellyfin,
 // Kodi and VLC pick up with no scan step.
-//
-// This binary is the headless core — `moandrop match` and `moandrop push`.
-// The desktop window wraps the same internal/core engine and comes next.
 package main
 
 import (
@@ -37,10 +34,9 @@ func main() {
 		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		// No args: launch the GUI empty. One path: launch it preloaded and
-		// start matching immediately — the contract a file manager's "Open
-		// with" (`moandrop "%f"`) relies on. Cobra only reaches this RunE
-		// when args[0], if any, doesn't name a subcommand.
+		// No args: launch the GUI empty. One path: launch it preloaded and start
+		// matching immediately, for a file manager's "Open with" (`moandrop "%f"`).
+		// Cobra only reaches this RunE when args[0], if any, doesn't name a subcommand.
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			var video string
