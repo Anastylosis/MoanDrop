@@ -1,0 +1,14 @@
+Windows Registry Editor Version 5.00
+
+; Removes the MoanDrop right-click entry added by install-context-menu.reg
+; (or install-context-menu.ps1). Double-click to import.
+
+[-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mp4\shell\MoanDrop]
+[-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.m4v\shell\MoanDrop]
+[-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mkv\shell\MoanDrop]
+[-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.avi\shell\MoanDrop]
+[-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.wmv\shell\MoanDrop]
+[-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.flv\shell\MoanDrop]
+[-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mov\shell\MoanDrop]
+[-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mpg\shell\MoanDrop]
+[-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mpeg\shell\MoanDrop]
