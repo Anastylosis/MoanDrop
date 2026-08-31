@@ -10,11 +10,8 @@ import (
 	"github.com/Anastylosis/MoanSubs/hash"
 )
 
-// Confidence levels for a candidate release, ported from the Stash plugin
-// (plugin/match.go) — the levels themselves are MoanSubs' matching contract,
-// levels 1-4. Level 0 (stash-box identity) is deliberately absent here: the
-// MoanDrop user has no stash-box ids, matching for them is hash + duration,
-// full stop.
+// Confidence levels for a candidate release, levels 1-4 (level 0, stash-box
+// identity, is absent — a MoanDrop user has no stash-box ids, so matching for them is hash + duration only).
 const (
 	// ConfidenceExact: oshash matches — byte-identical file.
 	ConfidenceExact = "exact"
@@ -41,38 +38,29 @@ type Candidate struct {
 	// CrossRelease is true when the subtitle was timed against a different
 	// encode than the local file — sync may be off.
 	CrossRelease bool `json:"cross_release"`
-	// SiblingOf is the release this candidate's track was authored
-	// against, when that is NOT the release the local file matched — the
-	// same video cut differently. Zero for an ordinary candidate.
-	//
-	// This is a stronger claim than CrossRelease above, which only means
-	// "a near phash". A sibling is a grouping somebody or something
-	// asserted, and it can carry a measured correction; a near-phash match
-	// carries nothing but a hope that the timings line up.
+	// SiblingOf is the release this candidate's track was authored against,
+	// when that differs from the release the local file matched (zero
+	// otherwise). Stronger than CrossRelease: a sibling is an asserted
+	// grouping that can carry a measured correction, not just a near-phash guess.
 	SiblingOf int64 `json:"sibling_of,omitempty"`
-	// SiblingOffsetMs is the shift the server will apply on download, and
-	// SiblingSyncKnown says whether one is recorded at all. Unknown sync is
-	// offered but never presented as a fit.
+	// SiblingOffsetMs is the shift the server applies on download;
+	// SiblingSyncKnown says whether one is recorded — unknown sync is offered but never presented as a fit.
 	SiblingOffsetMs  int64 `json:"sibling_offset_ms,omitempty"`
 	SiblingSyncKnown bool  `json:"sibling_sync_known,omitempty"`
-	// SiblingOffsetSource is how that number came about: "measured" or
-	// "manual" mean somebody with both files checked, "duration-delta"
-	// means nobody did and it was inferred from the runtime difference.
-	// The UI must not present the third as if it were the first — a guess
-	// that looks like a measurement is how a subtitle ends up quietly
-	// three seconds out with nothing on screen to explain it.
+	// SiblingOffsetSource is how the number came about: "measured"/"manual"
+	// means somebody checked both files; "duration-delta" means it was
+	// inferred from the runtime difference. The UI must not present the
+	// latter as the former — a guess that looks like a measurement is how sync silently drifts.
 	SiblingOffsetSource string `json:"sibling_offset_source,omitempty"`
 }
 
-// RankCandidates filters lookup results down to real matches, client-side.
-// The server returned everything in the queried buckets; true oshash
-// equality and true Hamming distances are computed here, which is what makes
-// the bucketed lookup private-by-default: the server never learns which
-// candidate matched.
+// RankCandidates filters lookup results down to real matches, client-side
+// — true oshash equality and Hamming distances are computed only here, so
+// the server never learns which candidate matched (the bucketed lookup's
+// privacy guarantee).
 //
-// fromExactMode widens the fuzzy radius to Hamming 5-8 (offer-only) — only
-// meaningful when the releases came from LookupExact, whose wider search
-// the bucketed flow cannot guarantee.
+// fromExactMode widens the fuzzy radius to Hamming 5-8 (offer-only), valid
+// only when releases came from LookupExact's wider search.
 func RankCandidates(releases []client.Release, fp Fingerprint, fromExactMode bool) []Candidate {
 	var out []Candidate
 	for _, r := range releases {
@@ -131,17 +119,12 @@ func confidenceRank(c string) int {
 	}
 }
 
-// siblingCandidates turns a matched release's sibling tracks into offers.
-//
-// They ride on an already-matched release rather than matching on their
-// own: the local file identifies exactly one release, and the siblings are
-// what the node says also fits that video. This is the path that reaches a
-// re-cut, which phash cannot — a trimmed intro moves every sampled frame,
-// so two copies of one film can sit 14 bits apart with no shared MIH block.
-//
-// Confidence is deliberately ConfidenceOffer even when the sync is known:
-// the grouping is advisory, and a subtitle authored for another cut is
-// never the same claim as one authored for this file.
+// siblingCandidates turns a matched release's sibling tracks into offers:
+// they ride on the already-matched release rather than matching on their
+// own, which is how this reaches a re-cut that phash cannot — a trimmed
+// intro shifts every sampled frame, so two copies of one film can sit 14
+// bits apart with no shared MIH block. Confidence stays ConfidenceOffer
+// even with known sync: the grouping is advisory, never the same claim as a subtitle authored for this exact file.
 func siblingCandidates(r client.Release, deltaMs int64) []Candidate {
 	if len(r.Siblings) == 0 {
 		return nil
@@ -174,9 +157,8 @@ func siblingCandidates(r client.Release, deltaMs int64) []Candidate {
 }
 
 // ForRelease returns the release id GetTrackFor should retime a candidate's
-// track against: the matched release's own id for a sibling offer (so the
-// server applies its recorded shift), or 0 to fetch every other candidate's
-// track exactly as authored.
+// track against: the matched release's id for a sibling offer (so the
+// server applies its recorded shift), or 0 for every other candidate.
 func ForRelease(c Candidate) int64 {
 	if c.SiblingOf != 0 {
 		return c.Release.ID
@@ -184,12 +166,9 @@ func ForRelease(c Candidate) int64 {
 	return 0
 }
 
-// EvidenceParts explains why a candidate matched, in the same order and
-// wording the CLI prints after the confidence level. Both the CLI and the
-// GUI candidate list render exactly these fragments (joined with "; " for
-// the CLI's one-line form) so a user reading either surface gets the same
-// claim about sync — verified, estimated, or unknown must never blur
-// together.
+// EvidenceParts explains why a candidate matched, in the wording both the
+// CLI and GUI render verbatim (joined with "; " for the CLI's one-line
+// form) — so verified, estimated, and unknown sync claims never blur between surfaces.
 func EvidenceParts(c Candidate) []string {
 	var parts []string
 	switch {
@@ -207,9 +186,8 @@ func EvidenceParts(c Candidate) []string {
 	return parts
 }
 
-// SortTracksByPreference orders tracks language-first in the order given,
-// stable so the server's own order — human-made before generated — survives
-// for ties. Never drops a track.
+// SortTracksByPreference stably orders tracks language-first, so the
+// server's human-made-before-generated order survives ties. Never drops a track.
 func SortTracksByPreference(tracks []client.TrackSummary, languages []string) {
 	langRank := func(t client.TrackSummary) int {
 		base, err := baseSubtag(t.Lang)
@@ -229,11 +207,9 @@ func SortTracksByPreference(tracks []client.TrackSummary, languages []string) {
 }
 
 // SelectTracks picks at most one track per base language from an already
-// preference-sorted list: languages is the preference order, allLanguages
-// widens it to every language the release has. Grouping by base, not the
-// raw stored tag, is what keeps two variants of one language (pt-BR and
-// pt-PT, or a default and an sdh track) from producing two sidecars that
-// would collide on disk.
+// preference-sorted list (languages is the preference order, allLanguages
+// widens it to every language the release has). Grouping by base — not the
+// raw tag — keeps variants like pt-BR/pt-PT, or default/sdh, from producing two sidecars that collide on disk.
 func SelectTracks(tracks []client.TrackSummary, languages []string, allLanguages bool) []client.TrackSummary {
 	seen := make(map[string]bool, len(tracks))
 	var out []client.TrackSummary

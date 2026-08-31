@@ -57,8 +57,7 @@ func makePathBinary(t *testing.T, name string) string {
 
 // setTempCache points os.UserCacheDir at dir. UserCacheDir reads a
 // different variable per OS — XDG_CACHE_HOME only counts on linux, which
-// is how tests setting only that passed there while silently sharing the
-// real user cache (and each other's downloads) on windows/macos runners.
+// let a test setting only that pass locally while quietly sharing the real cache on windows/macos runners.
 func setTempCache(t *testing.T, dir string) {
 	t.Helper()
 	switch runtime.GOOS {
@@ -297,7 +296,6 @@ func TestEnsureFFmpeg_ChecksumMismatchRejected(t *testing.T) {
 		t.Fatal("want checksum mismatch to be rejected")
 	}
 
-	// Nothing should have been left behind at the target path.
 	dir, err := ffmpegCacheDir(build.version)
 	if err != nil {
 		t.Fatal(err)

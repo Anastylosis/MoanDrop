@@ -15,8 +15,7 @@ const (
 	prefAgeAccepted = "age-gate-accepted"
 )
 
-// serverURL returns the node to talk to: a user-set Preference, or the
-// CLI's own default when none has been set yet.
+// serverURL falls back to the CLI's own default so the two never diverge.
 func serverURL(p fyne.Preferences) string {
 	v := p.StringWithFallback(prefServerURL, core.DefaultServerURL)
 	if v == "" {
@@ -29,8 +28,8 @@ func setServerURL(p fyne.Preferences, url string) {
 	p.SetString(prefServerURL, url)
 }
 
-// ageGateAccepted reports whether this install has already passed the
-// one-time 18+ confirmation (see runAgeGate).
+// ageGateAccepted reports whether this install already passed the one-time
+// 18+ confirmation (see showAgeGate).
 func ageGateAccepted(p fyne.Preferences) bool {
 	return p.Bool(prefAgeAccepted)
 }
