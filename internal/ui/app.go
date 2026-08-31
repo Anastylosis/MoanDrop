@@ -6,6 +6,7 @@ package ui
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/driver/desktop"
 )
 
 // Run launches the GUI; initialVideo, when non-empty, starts matching
@@ -26,6 +27,16 @@ func Run(initialVideo string) error {
 		if initialVideo != "" {
 			u.startVideo(initialVideo)
 		}
+	}
+
+	// Where a system tray exists, closing the window hides to it instead of
+	// quitting, so the drop target stays a click away. Quit still works from
+	// the File menu and the tray's own entry (fyne appends one).
+	if desk, ok := a.(desktop.App); ok {
+		desk.SetSystemTrayMenu(fyne.NewMenu("MoanDrop",
+			fyne.NewMenuItem("Show", w.Show),
+		))
+		w.SetCloseIntercept(w.Hide)
 	}
 
 	if ageGateAccepted(a.Preferences()) {

@@ -88,6 +88,10 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
 - **No ffmpeg**: a dialog gives the same guidance `match` prints, with a
   button to fall back to exact-file (oshash-only) matching instead of
   installing ffmpeg — the GUI equivalent of `--no-phash`.
+- **Tray**: closing the window hides it to the system tray, keeping the
+  drop target a click away; quit from the File menu or the tray entry.
+  On GNOME the tray icon needs the AppIndicator extension — without it
+  the hidden window is only reachable by running `moandrop` again.
 
 ### Build notes
 
