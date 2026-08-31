@@ -110,12 +110,57 @@ otherwise open behind it; this repo's release builds don't do this yet.
   first. AI tracks are usually accurate but may mishear names and slang;
   most of the database is AI-transcribed, so expect the badge often.
 
+## Shell integration
+
+Right-click a video → find subtitles, without opening a terminal. Files
+in `contrib/`.
+
+**Linux**
+
+- App launcher (`Exec=moandrop %f` — opens the GUI preloaded with that
+  file):
+  ```sh
+  cp contrib/linux/moandrop.desktop ~/.local/share/applications/
+  update-desktop-database ~/.local/share/applications/
+  ```
+- Nautilus script (headless: fingerprints, writes the sidecar, and
+  reports the result with `notify-send`; works from Nemo and Caja too):
+  ```sh
+  mkdir -p ~/.local/share/nautilus/scripts
+  cp contrib/linux/moandrop-match.sh ~/.local/share/nautilus/scripts/
+  chmod +x ~/.local/share/nautilus/scripts/moandrop-match.sh
+  ```
+  The desktop entry ships without an `Icon=` line — no icon asset exists
+  yet, and a stock name would be misleading. Right-click one or more
+  videos → Scripts → moandrop-match.sh. Set
+  `MOANDROP_LANG` (e.g. in the script itself, or your shell profile
+  before launching the file manager) to change the language from the
+  `en` default.
+
+**Windows**
+
+- Run `contrib\windows\install-context-menu.ps1` (per-user, no admin
+  needed) — it finds `moandrop.exe` next to itself, or pass
+  `-ExePath <path>`. `uninstall-context-menu.ps1` removes it.
+- Prefer not to run scripts? Edit the path placeholder in
+  `contrib\windows\install-context-menu.reg` and double-click it;
+  `uninstall-context-menu.reg` removes it.
+- Adds "Find subtitles (MoanDrop)" for `.mp4 .m4v .mkv .avi .wmv .flv
+  .mov .mpg .mpeg`, running `moandrop.exe "%1"` — the GUI, preloaded
+  with that file. On Windows 11 the entry lands under **Show more
+  options** — the modern top-level menu needs an MSIX-packaged app, out
+  of scope here.
+
+**macOS**
+
+Best-effort, no installer: see `contrib/macos/README.md` for an
+Automator Quick Action that wraps the CLI.
+
 ## Status
 
 The headless CLI and the desktop window (see above) both wrap the same
-`internal/core` engine, so they cannot drift apart, and ffmpeg
-auto-download is in place for both. Planned next: file-manager
-integration (right-click → find subtitles).
+`internal/core` engine, so they cannot drift apart; ffmpeg auto-download
+and file-manager integration (`contrib/`) are in place for both.
 
 ## Privacy & scope
 

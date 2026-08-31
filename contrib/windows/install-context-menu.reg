@@ -1,0 +1,60 @@
+Windows Registry Editor Version 5.00
+
+; Before importing: replace C:\\Path\\To\\moandrop.exe below with the real
+; path to moandrop.exe (keep the doubled backslashes — that's how .reg files
+; escape them), then double-click this file. Prefer install-context-menu.ps1
+; if you can run PowerShell scripts; it fills the path in for you.
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mp4\shell\MoanDrop]
+@="Find subtitles (MoanDrop)"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mp4\shell\MoanDrop\command]
+@="\"C:\\Path\\To\\moandrop.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.m4v\shell\MoanDrop]
+@="Find subtitles (MoanDrop)"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.m4v\shell\MoanDrop\command]
+@="\"C:\\Path\\To\\moandrop.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mkv\shell\MoanDrop]
+@="Find subtitles (MoanDrop)"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mkv\shell\MoanDrop\command]
+@="\"C:\\Path\\To\\moandrop.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.avi\shell\MoanDrop]
+@="Find subtitles (MoanDrop)"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.avi\shell\MoanDrop\command]
+@="\"C:\\Path\\To\\moandrop.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.wmv\shell\MoanDrop]
+@="Find subtitles (MoanDrop)"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.wmv\shell\MoanDrop\command]
+@="\"C:\\Path\\To\\moandrop.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.flv\shell\MoanDrop]
+@="Find subtitles (MoanDrop)"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.flv\shell\MoanDrop\command]
+@="\"C:\\Path\\To\\moandrop.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mov\shell\MoanDrop]
+@="Find subtitles (MoanDrop)"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mov\shell\MoanDrop\command]
+@="\"C:\\Path\\To\\moandrop.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mpg\shell\MoanDrop]
+@="Find subtitles (MoanDrop)"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mpg\shell\MoanDrop\command]
+@="\"C:\\Path\\To\\moandrop.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mpeg\shell\MoanDrop]
+@="Find subtitles (MoanDrop)"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mpeg\shell\MoanDrop\command]
+@="\"C:\\Path\\To\\moandrop.exe\" \"%1\""
