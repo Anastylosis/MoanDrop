@@ -52,7 +52,7 @@ func runMatch(ctx context.Context, videoPath string, langs []string, write, over
 	var ffmpeg, ffprobe string
 	if !noPhash {
 		var err error
-		ffmpeg, ffprobe, err = core.FindFFmpeg(flagFFmpeg, flagFFprobe)
+		ffmpeg, ffprobe, err = core.EnsureFFmpeg(ctx, flagFFmpeg, flagFFprobe)
 		if err != nil {
 			return fmt.Errorf("%w (or pass --no-phash for exact-file matches only)", err)
 		}

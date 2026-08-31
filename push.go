@@ -54,7 +54,7 @@ func runPush(ctx context.Context, videoPath, subPath, lang string, noPhash bool)
 
 	var ffmpeg, ffprobe string
 	if !noPhash {
-		ffmpeg, ffprobe, err = core.FindFFmpeg(flagFFmpeg, flagFFprobe)
+		ffmpeg, ffprobe, err = core.EnsureFFmpeg(ctx, flagFFmpeg, flagFFprobe)
 		if err != nil {
 			return fmt.Errorf("%w (or pass --no-phash to upload with the exact file hash only)", err)
 		}
