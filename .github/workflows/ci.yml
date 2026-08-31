@@ -33,6 +33,7 @@ jobs:
       # Fingerprinting and ranking are local; the only network code is the
       # moansubs client, which the tests never call live. CI proves it.
       offline-isolation: true
+      check-aur-srcinfo: true
       # Fyne's OpenGL bindings are cgo: a plain GOOS/GOARCH cross-compile
       # disables cgo and can never build them, so per-OS binaries come from
       # the native platform-tests runners instead. The ubuntu jobs need the

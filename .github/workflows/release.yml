@@ -14,9 +14,8 @@ permissions:
 
 jobs:
   # Binaries per OS/arch, MSD-style asset naming, via the shared release
-  # workflow. AUR/homebrew and a manual smoke gate come when the app is
-  # something end users install (the plan's step 7), not while the CLI is
-  # the whole product.
+  # workflow, plus debs/rpms (nfpm.yaml), the AUR package (packaging/aur)
+  # and the Homebrew tap formula (packaging/homebrew).
   release:
     uses: Anastylosis/.github/.github/workflows/go-release.yml@v1
     permissions:
@@ -36,6 +35,13 @@ jobs:
       # the Windows GUI binary must not flash a console window.
       native-artifacts: true
       windows-gui: true
+      nfpm: true
+      aur: true
+      aur-pkgname: moandrop
+      aur-commit-username: Wasylq
+      aur-commit-email: wasylq@protonmail.com
+      homebrew: true
+      homebrew-tap: Anastylosis/homebrew-tap
       apt-packages: >-
         libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev
         libxinerama-dev libxi-dev libxxf86vm-dev libxkbcommon-dev
