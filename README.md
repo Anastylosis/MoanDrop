@@ -99,7 +99,8 @@ The GUI needs CGO (Fyne's OpenGL/window-system bindings) and, on Linux,
 X11/Wayland/GL development headers at build time — the headless CLI has
 none of these requirements. On Windows, build with
 `-ldflags -H=windowsgui` to suppress the console window the GUI would
-otherwise open behind it; this repo's release builds don't do this yet.
+otherwise open behind it; the release builds do (release.yml's
+`windows-gui: true`).
 
 ### What the results mean
 
