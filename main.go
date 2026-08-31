@@ -12,6 +12,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/Anastylosis/MoanDrop/internal/core"
+	"github.com/Anastylosis/MoanDrop/internal/ui"
 )
 
 // version is stamped by the release build (-ldflags "-X main.version=...").
@@ -34,8 +37,20 @@ func main() {
 		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		// No args: launch the GUI empty. One path: launch it preloaded and
+		// start matching immediately — the contract a file manager's "Open
+		// with" (`moandrop "%f"`) relies on. Cobra only reaches this RunE
+		// when args[0], if any, doesn't name a subcommand.
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			var video string
+			if len(args) == 1 {
+				video = args[0]
+			}
+			return ui.Run(video)
+		},
 	}
-	root.PersistentFlags().StringVar(&flagServer, "server", envOr("MOANDROP_SERVER", "https://moansubs.org"), "moansubs server URL")
+	root.PersistentFlags().StringVar(&flagServer, "server", envOr("MOANDROP_SERVER", core.DefaultServerURL), "moansubs server URL")
 	root.PersistentFlags().StringVar(&flagToken, "token", os.Getenv("MOANDROP_TOKEN"), "account token (only needed for push)")
 	root.PersistentFlags().StringVar(&flagFFmpeg, "ffmpeg", "", "path to ffmpeg (default: $MOANDROP_FFMPEG, then PATH)")
 	root.PersistentFlags().StringVar(&flagFFprobe, "ffprobe", "", "path to ffprobe (default: $MOANDROP_FFPROBE, then PATH)")
