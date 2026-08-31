@@ -12,6 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
+
 	"github.com/Anastylosis/MoanSubs/client"
 	"github.com/Anastylosis/mediahash/oshash"
 
@@ -390,4 +394,273 @@ func TestStartVideo_MatchGenInvalidation(t *testing.T) {
 	if len(u.list.Objects) != 1 {
 		t.Fatalf("after releasing A: %d list children, want B's card still standing untouched", len(u.list.Objects))
 	}
+}
+
+// uploadServer answers POST /api/v1/subtitles with result, recording the
+// request body the client actually sent.
+func uploadServer(t *testing.T, result client.UploadResult) (*httptest.Server, *client.UploadRequest) {
+	t.Helper()
+	var got client.UploadRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(result)
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &got
+}
+
+// videoWithSidecar writes a video and one sidecar beside it in the same
+// directory (unlike tempVideo, which gets a fresh directory per call and so
+// can't produce a video/sidecar pair).
+func videoWithSidecar(t *testing.T, videoName, sidecarName string) (video, sidecar string) {
+	t.Helper()
+	dir := t.TempDir()
+	video = filepath.Join(dir, videoName)
+	sidecar = filepath.Join(dir, sidecarName)
+	if err := os.WriteFile(video, bytes.Repeat([]byte{0x77}, 4096), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sidecar, []byte("1\n00:00:01,000 --> 00:00:02,000\nhi\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return video, sidecar
+}
+
+func TestRefreshShareSection_RendersDiscoveredSidecar(t *testing.T) {
+	u := newTestApp(test.NewApp())
+	video, _ := videoWithSidecar(t, "scene.mp4", "scene.en.srt")
+
+	u.refreshShareSection(video)
+
+	if findButton(u.win.Content(), "Share") == nil {
+		t.Error("no per-sidecar Share button rendered")
+	}
+	if !strings.Contains(strings.Join(collectTexts(u.win.Content()), "\n"), "scene.en.srt (en)") {
+		t.Error("share section does not list the discovered sidecar with its language")
+	}
+	if findButton(u.win.Content(), "Share a subtitle...") == nil {
+		t.Error("the manual share button must always be present once a video is loaded")
+	}
+}
+
+// TestRefreshShareSection_NoSidecarsStillShowsManualButton covers the
+// maintainer addendum: sharing must stay reachable even when discovery
+// finds nothing.
+func TestRefreshShareSection_NoSidecarsStillShowsManualButton(t *testing.T) {
+	u := newTestApp(test.NewApp())
+	video := tempVideo(t, "scene.mp4", 0x01)
+
+	u.refreshShareSection(video)
+
+	if findButton(u.win.Content(), "Share a subtitle...") == nil {
+		t.Fatal("no sidecars found: the manual share button must still render")
+	}
+	if findButton(u.win.Content(), "Share") != nil {
+		t.Error("no sidecars found: no per-sidecar Share button should exist")
+	}
+}
+
+func TestShareSidecar_WithTokenPushesAndReportsLanguage(t *testing.T) {
+	noFFmpegEnv(t)
+	u, doneCh := newFlowApp(t)
+	video, _ := videoWithSidecar(t, "scene.mp4", "scene.en.srt")
+
+	srv, gotReq := uploadServer(t, client.UploadResult{TrackID: 8, ReleaseID: 9})
+	setServerURL(u.app.Preferences(), srv.URL)
+	setToken(u.app.Preferences(), "tok")
+
+	u.videoPath = video
+	u.refreshShareSection(video)
+
+	tapButtonOn(t, u.win, "Share")
+	waitDo(t, doneCh) // ffmpeg resolution fails fast (no download), dispatches the push
+	waitDo(t, doneCh) // push completes, status updated
+
+	if gotReq.Lang != "en" {
+		t.Errorf("server saw lang %q, want en", gotReq.Lang)
+	}
+	if !strings.Contains(gotReq.Body, "hi") {
+		t.Errorf("server saw body %q, want the sidecar's contents", gotReq.Body)
+	}
+	if u.status.Text != "uploaded as track 8 (release 9)" {
+		t.Errorf("status = %q, want the upload wording", u.status.Text)
+	}
+}
+
+func TestShareSidecar_DuplicateReadsAsCalmOutcome(t *testing.T) {
+	noFFmpegEnv(t)
+	u, doneCh := newFlowApp(t)
+	video, _ := videoWithSidecar(t, "scene.mp4", "scene.en.srt")
+
+	srv, _ := uploadServer(t, client.UploadResult{TrackID: 8, ReleaseID: 9, Duplicate: true})
+	setServerURL(u.app.Preferences(), srv.URL)
+	setToken(u.app.Preferences(), "tok")
+
+	u.videoPath = video
+	u.refreshShareSection(video)
+
+	tapButtonOn(t, u.win, "Share")
+	waitDo(t, doneCh)
+	waitDo(t, doneCh)
+
+	if u.status.Text != "already on the node: track 8 (release 9) — nothing new to share" {
+		t.Errorf("status = %q, want the calm duplicate wording", u.status.Text)
+	}
+	if topOverlay(u.win) != nil {
+		t.Error("a duplicate push must not surface as an error dialog")
+	}
+}
+
+func TestShareSidecar_NoTokenOpensTokenDialogThenPushes(t *testing.T) {
+	noFFmpegEnv(t)
+	u, doneCh := newFlowApp(t)
+	video, _ := videoWithSidecar(t, "scene.mp4", "scene.en.srt")
+
+	srv, gotReq := uploadServer(t, client.UploadResult{TrackID: 1, ReleaseID: 2})
+	setServerURL(u.app.Preferences(), srv.URL)
+	// No token configured.
+
+	u.videoPath = video
+	u.refreshShareSection(video)
+
+	tapButtonOn(t, u.win, "Share")
+
+	if !strings.Contains(strings.Join(collectTexts(topOverlay(u.win)), "\n"), tokenDialogText) {
+		t.Fatal("no token configured: expected the account-token dialog to open")
+	}
+
+	entry := findEntry(topOverlay(u.win))
+	if entry == nil {
+		t.Fatal("token dialog has no entry field")
+	}
+	test.Type(entry, "fresh-token")
+	tapButtonOn(t, u.win, "Save")
+
+	waitDo(t, doneCh) // ffmpeg resolution
+	waitDo(t, doneCh) // push completes
+
+	if gotReq.Lang != "en" {
+		t.Errorf("server saw lang %q, want en", gotReq.Lang)
+	}
+	if token(u.app.Preferences()) != "fresh-token" {
+		t.Errorf("token() = %q, want the just-saved token to persist", token(u.app.Preferences()))
+	}
+}
+
+func TestHandlePickedSubtitle_InfersLanguageAndPushes(t *testing.T) {
+	noFFmpegEnv(t)
+	u, doneCh := newFlowApp(t)
+	video := tempVideo(t, "scene.mp4", 0x02)
+	sub := filepath.Join(t.TempDir(), "Some Scene.en.srt")
+	if err := os.WriteFile(sub, []byte("body"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	srv, gotReq := uploadServer(t, client.UploadResult{TrackID: 4, ReleaseID: 5})
+	setServerURL(u.app.Preferences(), srv.URL)
+	setToken(u.app.Preferences(), "tok")
+
+	u.videoPath = video
+	u.refreshShareSection(video) // no sidecars found; only the manual button
+	if findButton(u.win.Content(), "Share a subtitle...") == nil {
+		t.Fatal("manual share button must render even with no discovered sidecars")
+	}
+
+	// fyne's headless test driver cannot open pickSubtitleToShare's native
+	// file dialog, so the picker's callback is driven directly (see
+	// handlePickedSubtitle's doc comment).
+	u.handlePickedSubtitle(sub)
+	waitDo(t, doneCh)
+	waitDo(t, doneCh)
+
+	if gotReq.Lang != "en" {
+		t.Errorf("server saw lang %q, want en (inferred from the picked file's name)", gotReq.Lang)
+	}
+}
+
+func TestHandlePickedSubtitle_UnknownLanguageAsksThenPushes(t *testing.T) {
+	noFFmpegEnv(t)
+	u, doneCh := newFlowApp(t)
+	video := tempVideo(t, "scene.mp4", 0x03)
+	sub := filepath.Join(t.TempDir(), "my-subtitle-file.srt") // no parseable language
+	if err := os.WriteFile(sub, []byte("body"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	srv, gotReq := uploadServer(t, client.UploadResult{TrackID: 6, ReleaseID: 7})
+	setServerURL(u.app.Preferences(), srv.URL)
+	setToken(u.app.Preferences(), "tok")
+
+	u.videoPath = video
+	u.handlePickedSubtitle(sub)
+
+	all := strings.Join(collectTexts(topOverlay(u.win)), "\n")
+	if !strings.Contains(all, filepath.Base(sub)) {
+		t.Fatalf("expected a language-ask dialog naming %q, got %q", sub, all)
+	}
+	entry := findEntry(topOverlay(u.win))
+	if entry == nil {
+		t.Fatal("language dialog has no entry field")
+	}
+	test.Type(entry, "de")
+	tapButtonOn(t, u.win, "Share")
+
+	waitDo(t, doneCh)
+	waitDo(t, doneCh)
+
+	if gotReq.Lang != "de" {
+		t.Errorf("server saw lang %q, want de", gotReq.Lang)
+	}
+}
+
+func TestStartVideo_MultiFileDropPairsVideoAndSubtitle(t *testing.T) {
+	noFFmpegEnv(t)
+	u, doneCh := newFlowApp(t)
+
+	srv := httptest.NewServer(lookupBatchHandler(nil))
+	t.Cleanup(srv.Close)
+	setServerURL(u.app.Preferences(), srv.URL)
+
+	video := tempVideo(t, "scene.mp4", 0x04)
+	oddlyNamed := filepath.Join(t.TempDir(), "whatever-i-called-it.srt") // unconventional name, explicit drop pairing
+
+	u.startVideo(video, oddlyNamed)
+	waitDo(t, doneCh) // ffmpeg-missing dialog
+	tapButtonOn(t, u.win, "Match without ffmpeg")
+	waitDo(t, doneCh) // "looking up..."
+	waitDo(t, doneCh) // final: no match
+
+	if !strings.Contains(strings.Join(collectTexts(u.win.Content()), "\n"), "whatever-i-called-it.srt") {
+		t.Error("explicitly dropped subtitle must be offered for sharing even with an unconventional name")
+	}
+}
+
+func TestSplitVideoAndSubtitles(t *testing.T) {
+	video, subs := splitVideoAndSubtitles([]string{"/x/scene.mp4", "/x/scene.en.srt", "/x/scene.de.vtt"})
+	if video != "/x/scene.mp4" || len(subs) != 2 {
+		t.Fatalf("video=%q subs=%v", video, subs)
+	}
+
+	if v, s := splitVideoAndSubtitles([]string{"/x/a.mp4", "/x/b.mp4", "/x/c.srt"}); v != "" || s != nil {
+		t.Errorf("two videos: got video=%q subs=%v, want the explicit shape rejected", v, s)
+	}
+
+	if v, s := splitVideoAndSubtitles([]string{"/x/a.srt", "/x/b.srt"}); v != "" || s == nil {
+		t.Errorf("no video: got video=%q subs=%v", v, s)
+	}
+}
+
+// findEntry finds the first *widget.Entry reachable from o.
+func findEntry(o fyne.CanvasObject) *widget.Entry {
+	var found *widget.Entry
+	walkCanvas(o, func(c fyne.CanvasObject) {
+		if found != nil {
+			return
+		}
+		if e, ok := c.(*widget.Entry); ok {
+			found = e
+		}
+	})
+	return found
 }
