@@ -204,7 +204,7 @@ func downloadAndExtract(ctx context.Context, cacheDir, url, wantSHA256 string, w
 	if err != nil {
 		return fmt.Errorf("downloading %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("downloading %s: HTTP %d", url, resp.StatusCode)
 	}
@@ -214,7 +214,7 @@ func downloadAndExtract(ctx context.Context, cacheDir, url, wantSHA256 string, w
 		return err
 	}
 	zipPath := zipFile.Name()
-	defer os.Remove(zipPath) // no-op once extraction succeeds and callers move on
+	defer func() { _ = os.Remove(zipPath) }() // no-op once extraction succeeds and callers move on
 
 	h := sha256.New()
 	_, copyErr := io.Copy(zipFile, io.TeeReader(resp.Body, h))
@@ -234,7 +234,7 @@ func downloadAndExtract(ctx context.Context, cacheDir, url, wantSHA256 string, w
 	if err != nil {
 		return fmt.Errorf("%s: %w", url, err)
 	}
-	defer zr.Close()
+	defer func() { _ = zr.Close() }()
 
 	found := make(map[string]bool, len(wanted))
 	for _, f := range zr.File {
@@ -266,7 +266,7 @@ func extractZipEntry(f *zip.File, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 
 	tmp, err := os.CreateTemp(filepath.Dir(dest), "extract-*")
 	if err != nil {
@@ -274,20 +274,20 @@ func extractZipEntry(f *zip.File, dest string) error {
 	}
 	tmpPath := tmp.Name()
 	if _, err := io.Copy(tmp, rc); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := os.Chmod(tmpPath, 0o755); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := os.Rename(tmpPath, dest); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	return nil
