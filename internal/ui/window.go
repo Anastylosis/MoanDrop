@@ -144,7 +144,8 @@ func (u *appUI) renderCandidates(rows []CandidateRow) {
 				sawGenerated = true
 			}
 		}
-		card := widget.NewCard(fmt.Sprintf("release %d", row.Release.ID), header, trackRows)
+		card := widget.NewCard(ReleaseLabel(row.Release),
+			fmt.Sprintf("%s (release %d)", header, row.Release.ID), trackRows)
 		u.list.Add(card)
 	}
 	if sawGenerated {

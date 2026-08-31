@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/Anastylosis/MoanDrop/internal/core"
@@ -23,6 +24,30 @@ type CandidateRow struct {
 	Confidence string
 	Evidence   string // joined EvidenceParts, "" when there is nothing to add
 	Tracks     []TrackRow
+}
+
+// ReleaseLabel is the card title: the server stores no titles or names —
+// a release is identified by fingerprint — so the label is built from what
+// a lookup does carry: resolution, runtime, codec.
+func ReleaseLabel(r client.Release) string {
+	var parts []string
+	if r.Height != nil && *r.Height > 0 {
+		parts = append(parts, fmt.Sprintf("%dp", *r.Height))
+	}
+	if secs := r.DurationMs / 1000; secs > 0 {
+		if secs >= 3600 {
+			parts = append(parts, fmt.Sprintf("%d:%02d:%02d", secs/3600, secs%3600/60, secs%60))
+		} else {
+			parts = append(parts, fmt.Sprintf("%d:%02d", secs/60, secs%60))
+		}
+	}
+	if r.VideoCodec != nil && *r.VideoCodec != "" {
+		parts = append(parts, *r.VideoCodec)
+	}
+	if len(parts) == 0 {
+		return fmt.Sprintf("release %d", r.ID)
+	}
+	return strings.Join(parts, " · ")
 }
 
 // BuildCandidateRows turns ranked candidates into what the window renders,

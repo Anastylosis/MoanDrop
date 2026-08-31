@@ -111,3 +111,18 @@ func TestBuildCandidateRows_NoEvidenceForPlainHighConfidence(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+func TestReleaseLabel(t *testing.T) {
+	h, codec := 1080, "h264"
+	full := client.Release{ID: 7, Height: &h, DurationMs: 1_471_000, VideoCodec: &codec}
+	if got := ReleaseLabel(full); got != "1080p · 24:31 · h264" {
+		t.Errorf("full = %q", got)
+	}
+	long := client.Release{ID: 7, DurationMs: 5_071_000}
+	if got := ReleaseLabel(long); got != "1:24:31" {
+		t.Errorf("long = %q", got)
+	}
+	if got := ReleaseLabel(client.Release{ID: 11086}); got != "release 11086" {
+		t.Errorf("bare = %q", got)
+	}
+}
