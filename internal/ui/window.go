@@ -49,7 +49,7 @@ func (u *appUI) build() {
 	privacy.Wrapping = fyne.TextWrapWord
 
 	u.drop = widget.NewLabelWithStyle(
-		"Drop a video here, or use File → Open Video…",
+		"Drop a video here, or use File → Open Video...",
 		fyne.TextAlignCenter, fyne.TextStyle{})
 	u.drop.Wrapping = fyne.TextWrapWord
 	dropArea := widget.NewCard("", "", container.NewCenter(u.drop))
@@ -76,8 +76,8 @@ func (u *appUI) build() {
 	// and a hand-rolled second one shows up alongside it.
 	u.win.SetMainMenu(fyne.NewMainMenu(
 		fyne.NewMenu("File",
-			fyne.NewMenuItem("Open Video…", u.openVideoDialog),
-			fyne.NewMenuItem("Server…", u.promptServerURL),
+			fyne.NewMenuItem("Open Video...", u.openVideoDialog),
+			fyne.NewMenuItem("Server...", u.promptServerURL),
 		),
 	))
 }
