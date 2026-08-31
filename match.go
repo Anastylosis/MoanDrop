@@ -58,7 +58,7 @@ func runMatch(ctx context.Context, videoPath string, langs []string, write, over
 		}
 	}
 
-	fmt.Fprintln(os.Stderr, "fingerprinting (the video never leaves this machine)...")
+	fmt.Fprintln(os.Stderr, core.FingerprintingMessage)
 	fp, err := core.FingerprintFile(ctx, ffmpeg, ffprobe, videoPath)
 	if err != nil {
 		return err
@@ -80,9 +80,9 @@ func runMatch(ctx context.Context, videoPath string, langs []string, write, over
 		if flagJSON {
 			fmt.Println("[]")
 		} else {
-			fmt.Println("no match on the node for this file")
+			fmt.Println(core.NoMatchMessage)
 			if fp.PHash == nil {
-				fmt.Println("(searched by exact file hash only — without --no-phash, other encodes of the same video would also be found)")
+				fmt.Println(core.NoPhashOnlyHint)
 			}
 		}
 		os.Exit(exitNoMatch)
@@ -110,9 +110,9 @@ func printCandidates(candidates []core.Candidate) {
 	for _, cand := range candidates {
 		fmt.Printf("release %d  %s%s\n", cand.Release.ID, cand.Confidence, evidenceNote(cand))
 		for _, t := range cand.Release.Tracks {
-			madeBy := "human-made"
+			madeBy := core.LabelHuman
 			if t.Generated {
-				madeBy = "AI"
+				madeBy = core.LabelGenerated
 				sawGenerated = true
 			}
 			kind := ""
@@ -124,25 +124,12 @@ func printCandidates(candidates []core.Candidate) {
 		}
 	}
 	if sawGenerated {
-		fmt.Println("\nAI = machine-transcribed, unreviewed. Human-made tracks are listed first;")
-		fmt.Println("an AI track is usually accurate but may mishear names and slang.")
+		fmt.Println("\n" + core.GeneratedExplainer)
 	}
 }
 
 func evidenceNote(c core.Candidate) string {
-	var parts []string
-	switch {
-	case c.SiblingOf != 0 && c.SiblingSyncKnown && c.SiblingOffsetSource != "duration-delta":
-		parts = append(parts, fmt.Sprintf("another cut of this video, verified shift %+dms", c.SiblingOffsetMs))
-	case c.SiblingOf != 0 && c.SiblingSyncKnown:
-		parts = append(parts, fmt.Sprintf("another cut of this video, estimated shift %+dms — sync unverified", c.SiblingOffsetMs))
-	case c.SiblingOf != 0:
-		parts = append(parts, "another cut of this video — sync unknown")
-	case c.Confidence == core.ConfidenceExact:
-		parts = append(parts, "byte-identical file")
-	case c.CrossRelease:
-		parts = append(parts, fmt.Sprintf("same video, different encode (distance %d, Δ%+dms) — sync usually fine", c.HammingDistance, c.DurationDeltaMs))
-	}
+	parts := core.EvidenceParts(c)
 	if len(parts) == 0 {
 		return ""
 	}
@@ -159,38 +146,13 @@ func writeMatches(ctx context.Context, c *client.Client, videoPath string, candi
 		os.Exit(exitNoMatch)
 	}
 
-	// Only a true sibling grouping asks the server to retime; an ordinary
-	// cross-release phash match is served exactly as authored.
-	var forRelease int64
-	if top.SiblingOf != 0 {
-		forRelease = top.Release.ID
-	}
-
+	forRelease := core.ForRelease(top)
 	for _, t := range selected {
-		lang, err := core.ResolveCaptionLang(t.Lang)
+		res, err := core.DownloadTrack(ctx, c, videoPath, t.ID, forRelease, t.Lang, overwrite)
 		if err != nil {
 			return err
 		}
-		track, err := c.GetTrackFor(ctx, t.ID, forRelease)
-		if err != nil {
-			return fmt.Errorf("downloading track %d: %w", t.ID, err)
-		}
-		path, created, err := core.WriteSidecar(videoPath, lang, track.Body, overwrite)
-		if err != nil {
-			return err
-		}
-		verb := "wrote"
-		if !created {
-			verb = "replaced"
-		}
-		note := ""
-		if track.Generated {
-			note = "  (AI-generated subtitle)"
-		}
-		if lang.Normalized {
-			note += fmt.Sprintf("  (%s stored as %s — sidecar names take bare language codes)", lang.Original, lang.Base)
-		}
-		fmt.Printf("%s %s%s\n", verb, path, note)
+		fmt.Printf("%s %s%s\n", res.Verb(), res.Path, res.Note())
 	}
 	return nil
 }

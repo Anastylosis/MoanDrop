@@ -59,7 +59,7 @@ func runPush(ctx context.Context, videoPath, subPath, lang string, noPhash bool)
 			return fmt.Errorf("%w (or pass --no-phash to upload with the exact file hash only)", err)
 		}
 	}
-	fmt.Fprintln(os.Stderr, "fingerprinting (the video never leaves this machine)...")
+	fmt.Fprintln(os.Stderr, core.FingerprintingMessage)
 	fp, err := core.FingerprintFile(ctx, ffmpeg, ffprobe, videoPath)
 	if err != nil {
 		return err
