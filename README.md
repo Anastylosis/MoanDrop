@@ -135,9 +135,10 @@ in `contrib/`.
   cp contrib/linux/moandrop-match.sh ~/.local/share/nautilus/scripts/
   chmod +x ~/.local/share/nautilus/scripts/moandrop-match.sh
   ```
-  The desktop entry ships without an `Icon=` line — no icon asset exists
-  yet, and a stock name would be misleading. Right-click one or more
-  videos → Scripts → moandrop-match.sh. Set
+  The desktop entry names `Icon=moandrop` — the deb/rpm/AUR packages
+  install it; for a manual install copy `internal/ui/icon.png` to
+  `~/.local/share/icons/hicolor/256x256/apps/moandrop.png`. Right-click
+  one or more videos → Scripts → moandrop-match.sh. Set
   `MOANDROP_LANG` (e.g. in the script itself, or your shell profile
   before launching the file manager) to change the language from the
   `en` default.

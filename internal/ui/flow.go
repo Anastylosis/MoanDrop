@@ -11,7 +11,7 @@ import (
 	"github.com/Anastylosis/MoanSubs/client"
 )
 
-// startVideo is the entry point for a drop, File → Open Video..., and the
+// startVideo is the entry point for a drop, File > Open Video..., and the
 // video named on the command line.
 func (u *appUI) startVideo(path string) {
 	if path == "" {

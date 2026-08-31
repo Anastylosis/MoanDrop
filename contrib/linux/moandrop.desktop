@@ -3,6 +3,7 @@ Type=Application
 Name=MoanDrop
 Comment=Find subtitles for a video by fingerprint, not filename
 Exec=moandrop %f
+Icon=moandrop
 Terminal=false
 Categories=AudioVideo;Utility;
 MimeType=video/mp4;video/x-matroska;video/vnd.avi;video/x-ms-wmv;video/x-flv;video/quicktime;video/mpeg;
