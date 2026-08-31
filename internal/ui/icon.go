@@ -1,0 +1,12 @@
+package ui
+
+import (
+	_ "embed"
+
+	"fyne.io/fyne/v2"
+)
+
+//go:embed icon.png
+var iconPNG []byte
+
+var appIcon = fyne.NewStaticResource("moandrop.png", iconPNG)

@@ -13,6 +13,7 @@ import (
 // immediately instead of waiting for a drop (the CLI's `moandrop <video>`).
 func Run(initialVideo string) error {
 	a := app.NewWithID(appID)
+	a.SetIcon(appIcon)
 	w := a.NewWindow("MoanDrop")
 
 	u := &appUI{app: a, win: w}
@@ -36,6 +37,7 @@ func Run(initialVideo string) error {
 		desk.SetSystemTrayMenu(fyne.NewMenu("MoanDrop",
 			fyne.NewMenuItem("Show", w.Show),
 		))
+		desk.SetSystemTrayIcon(appIcon)
 		w.SetCloseIntercept(w.Hide)
 	}
 

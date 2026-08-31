@@ -49,7 +49,7 @@ func (u *appUI) build() {
 	privacy.Wrapping = fyne.TextWrapWord
 
 	u.drop = widget.NewLabelWithStyle(
-		"Drop a video here, or use File → Open Video...",
+		"Drop a video here, or use File > Open Video...",
 		fyne.TextAlignCenter, fyne.TextStyle{})
 	u.drop.Wrapping = fyne.TextWrapWord
 	dropArea := widget.NewCard("", "", container.NewCenter(u.drop))
@@ -167,7 +167,7 @@ func (u *appUI) trackRowWidget(tr TrackRow) fyne.CanvasObject {
 	if k := tr.Track.Kind; k != "" && k != "default" {
 		kind = "  " + k
 	}
-	label := widget.NewLabel(fmt.Sprintf("%s  %s%s  ↑%d ↓%d  %d downloads",
+	label := widget.NewLabel(fmt.Sprintf("%s  %s%s  +%d -%d  %d downloads",
 		tr.Track.Lang, made, kind, tr.Track.Up, tr.Track.Down, tr.Track.Downloads))
 
 	items := []fyne.CanvasObject{label}
