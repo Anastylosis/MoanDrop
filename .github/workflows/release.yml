@@ -31,3 +31,12 @@ jobs:
       # The category must already exist on the repo (Discussions on), or
       # finalizing the release fails after the artifacts are built.
       discussion-category: Announcements
+      # Fyne's OpenGL bindings are cgo: binaries must be built on native
+      # per-OS runners, the ubuntu jobs need GL/X11/Wayland headers, and
+      # the Windows GUI binary must not flash a console window.
+      native-artifacts: true
+      windows-gui: true
+      apt-packages: >-
+        libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev
+        libxinerama-dev libxi-dev libxxf86vm-dev libxkbcommon-dev
+        libwayland-dev wayland-protocols pkg-config
