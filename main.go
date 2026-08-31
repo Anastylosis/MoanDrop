@@ -1,0 +1,57 @@
+// MoanDrop is a desktop subtitle finder for the moansubs database, for
+// people who do not run Stash: drop (or name) a video file, get a matching
+// subtitle written beside it as `<stem>.<lang>.srt`, which Plex, Jellyfin,
+// Kodi and VLC pick up with no scan step.
+//
+// This binary is the headless core — `moandrop match` and `moandrop push`.
+// The desktop window wraps the same internal/core engine and comes next.
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+)
+
+// version is stamped by the release build (-ldflags "-X main.version=...").
+var version = "dev"
+
+// Global flags. Lookups and downloads are anonymous by design — the token
+// is only ever needed for push.
+var (
+	flagServer  string
+	flagToken   string
+	flagFFmpeg  string
+	flagFFprobe string
+	flagJSON    bool
+)
+
+func main() {
+	root := &cobra.Command{
+		Use:           "moandrop",
+		Short:         "Find and share subtitles for your videos by fingerprint, not filename",
+		Version:       version,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	root.PersistentFlags().StringVar(&flagServer, "server", envOr("MOANDROP_SERVER", "https://moansubs.org"), "moansubs server URL")
+	root.PersistentFlags().StringVar(&flagToken, "token", os.Getenv("MOANDROP_TOKEN"), "account token (only needed for push)")
+	root.PersistentFlags().StringVar(&flagFFmpeg, "ffmpeg", "", "path to ffmpeg (default: $MOANDROP_FFMPEG, then PATH)")
+	root.PersistentFlags().StringVar(&flagFFprobe, "ffprobe", "", "path to ffprobe (default: $MOANDROP_FFPROBE, then PATH)")
+	root.PersistentFlags().BoolVar(&flagJSON, "json", false, "machine-readable output")
+
+	root.AddCommand(matchCmd(), pushCmd())
+
+	if err := root.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "moandrop:", err)
+		os.Exit(1)
+	}
+}
+
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}

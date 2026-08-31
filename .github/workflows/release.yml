@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Binaries per OS/arch, MSD-style asset naming, via the shared release
+  # workflow. AUR/homebrew and a manual smoke gate come when the app is
+  # something end users install (the plan's step 7), not while the CLI is
+  # the whole product.
+  release:
+    uses: Anastylosis/.github/.github/workflows/go-release.yml@v1
+    permissions:
+      contents: write
+      discussions: write
+      id-token: write
+      attestations: write
+    secrets: inherit
+    with:
+      binary-name: moandrop
+      main-package: .
+      # The category must already exist on the repo (Discussions on), or
+      # finalizing the release fails after the artifacts are built.
+      discussion-category: Announcements
