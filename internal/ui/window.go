@@ -25,7 +25,12 @@ type appUI struct {
 	list   *fyne.Container
 	scroll *container.Scroll
 
-	videoPath string
+	// All three below are touched only on the UI goroutine. matchGen
+	// invalidates callbacks from a superseded run: a slow match for video A
+	// must not repaint its results over video B's after the user moved on.
+	videoPath    string
+	matchGen     int
+	downloadBusy bool
 }
 
 // build wires up the window's permanent chrome: the privacy line, the drop
@@ -160,8 +165,14 @@ func (u *appUI) trackRowWidget(tr TrackRow) fyne.CanvasObject {
 	if tr.Badge != "" {
 		made = tr.Badge
 	}
-	label := widget.NewLabel(fmt.Sprintf("%s  %s  ↑%d ↓%d  %d downloads",
-		tr.Track.Lang, made, tr.Track.Up, tr.Track.Down, tr.Track.Downloads))
+	// Same rule as the CLI: "default" is the unmarked case, every other
+	// declared kind (cc/sdh/forced/other) distinguishes same-language tracks.
+	kind := ""
+	if k := tr.Track.Kind; k != "" && k != "default" {
+		kind = "  " + k
+	}
+	label := widget.NewLabel(fmt.Sprintf("%s  %s%s  ↑%d ↓%d  %d downloads",
+		tr.Track.Lang, made, kind, tr.Track.Up, tr.Track.Down, tr.Track.Downloads))
 
 	items := []fyne.CanvasObject{label}
 	if tr.Badge != "" {
