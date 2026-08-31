@@ -26,10 +26,22 @@ Grab a binary from the releases page, or:
 go install github.com/Anastylosis/MoanDrop@latest
 ```
 
-`match` and `push` use `ffmpeg`/`ffprobe` for the perceptual hash — install
-ffmpeg through your package manager, or point `--ffmpeg`/`--ffprobe` (or
-`MOANDROP_FFMPEG`/`MOANDROP_FFPROBE`) at binaries. Without ffmpeg,
+`match` and `push` use `ffmpeg`/`ffprobe` for the perceptual hash. You do
+not need to install anything: if neither binary is on your `PATH`,
+MoanDrop downloads a pinned build (ffmpeg 6.1 on linux/macOS, the
+gyan.dev essentials build on Windows, pinned at 8.1.2 — see the note
+below) into
+`$XDG_CACHE_HOME/moandrop/ffmpeg/<version>/` (or the OS equivalent of
+`os.UserCacheDir()`) the first time it's needed, verifies its checksum,
+and reuses it on every later run. Resolution order: `--ffmpeg`/`--ffprobe`
+flag, then `MOANDROP_FFMPEG`/`MOANDROP_FFPROBE`, then `PATH`, then the
+cache, then the download. Set `MOANDROP_NO_DOWNLOAD=1` to disable the
+download step entirely; without ffmpeg reachable any other way,
 `--no-phash` still matches byte-identical files by their file hash alone.
+
+Windows' pin trails the others because gyan.dev only mirrors its most
+recent release under a fixed, versioned URL — it doesn't keep an archive
+of older versions the way the linux/macOS sources do.
 
 ## Use
 
@@ -63,10 +75,10 @@ can tell "nothing found" from "something broke".
 
 ## Status
 
-Headless CLI (this binary) is the working core. Planned, in order: a
-drag-and-drop desktop window over the same engine, file-manager
-integration (right-click → find subtitles), and ffmpeg auto-download on
-first run. The engine lives in `internal/core` so the window and the CLI
+Headless CLI (this binary) is the working core, with ffmpeg auto-download
+already in place. Planned, in order: a drag-and-drop desktop window over
+the same engine, then file-manager integration (right-click → find
+subtitles). The engine lives in `internal/core` so the window and the CLI
 cannot drift apart.
 
 ## Privacy & scope
