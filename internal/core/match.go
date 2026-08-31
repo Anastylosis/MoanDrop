@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"slices"
 	"sort"
 	"time"
@@ -170,6 +171,40 @@ func siblingCandidates(r client.Release, deltaMs int64) []Candidate {
 		out = append(out, c)
 	}
 	return out
+}
+
+// ForRelease returns the release id GetTrackFor should retime a candidate's
+// track against: the matched release's own id for a sibling offer (so the
+// server applies its recorded shift), or 0 to fetch every other candidate's
+// track exactly as authored.
+func ForRelease(c Candidate) int64 {
+	if c.SiblingOf != 0 {
+		return c.Release.ID
+	}
+	return 0
+}
+
+// EvidenceParts explains why a candidate matched, in the same order and
+// wording the CLI prints after the confidence level. Both the CLI and the
+// GUI candidate list render exactly these fragments (joined with "; " for
+// the CLI's one-line form) so a user reading either surface gets the same
+// claim about sync — verified, estimated, or unknown must never blur
+// together.
+func EvidenceParts(c Candidate) []string {
+	var parts []string
+	switch {
+	case c.SiblingOf != 0 && c.SiblingSyncKnown && c.SiblingOffsetSource != "duration-delta":
+		parts = append(parts, fmt.Sprintf("another cut of this video, verified shift %+dms", c.SiblingOffsetMs))
+	case c.SiblingOf != 0 && c.SiblingSyncKnown:
+		parts = append(parts, fmt.Sprintf("another cut of this video, estimated shift %+dms — sync unverified", c.SiblingOffsetMs))
+	case c.SiblingOf != 0:
+		parts = append(parts, "another cut of this video — sync unknown")
+	case c.Confidence == ConfidenceExact:
+		parts = append(parts, "byte-identical file")
+	case c.CrossRelease:
+		parts = append(parts, fmt.Sprintf("same video, different encode (distance %d, Δ%+dms) — sync usually fine", c.HammingDistance, c.DurationDeltaMs))
+	}
+	return parts
 }
 
 // SortTracksByPreference orders tracks language-first in the order given,
