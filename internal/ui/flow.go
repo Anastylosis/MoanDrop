@@ -25,13 +25,29 @@ func (u *appUI) startVideo(path string) {
 	u.list.Refresh()
 
 	ffmpeg, ffprobe, err := core.FindFFmpeg("", "")
-	if err != nil {
-		showFFmpegMissing(u.win, err, func() {
-			u.runMatch(path, "", "")
-		})
+	if err == nil {
+		u.runMatch(path, ffmpeg, ffprobe)
 		return
 	}
-	u.runMatch(path, ffmpeg, ffprobe)
+
+	// Not installed: EnsureFFmpeg may download the pinned build, so it
+	// cannot run on the UI goroutine.
+	u.setBusy(true)
+	u.setStatus("fetching ffmpeg (downloaded once, then cached)...")
+	go func() {
+		ffmpeg, ffprobe, err := core.EnsureFFmpeg(context.Background(), "", "")
+		if err != nil {
+			fyne.Do(func() {
+				u.setBusy(false)
+				u.setStatus("")
+				showFFmpegMissing(u.win, err, func() {
+					u.runMatch(path, "", "")
+				})
+			})
+			return
+		}
+		fyne.Do(func() { u.runMatch(path, ffmpeg, ffprobe) })
+	}()
 }
 
 // runMatch fingerprints path and looks it up, mirroring match.go's runMatch

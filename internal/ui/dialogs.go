@@ -26,9 +26,10 @@ func showAgeGate(win fyne.Window, onDecision func(accepted bool)) {
 	d.Show()
 }
 
-// showFFmpegMissing surfaces core.FindFFmpeg's own error text — the same
-// guidance the CLI prints — and offers the CLI's --no-phash fallback as a
-// button instead of a flag. onFallback runs only if the user picks it.
+// showFFmpegMissing surfaces the resolver's own error text — the same
+// guidance the CLI prints when EnsureFFmpeg can neither find nor download
+// a build — and offers the CLI's --no-phash fallback as a button instead
+// of a flag. onFallback runs only if the user picks it.
 func showFFmpegMissing(win fyne.Window, err error, onFallback func()) {
 	d := dialog.NewConfirm("ffmpeg not found", err.Error()+"\n\nYou can still match this file by its exact bytes, without ffmpeg — other encodes of the same video won't be found.", func(ok bool) {
 		if ok {
