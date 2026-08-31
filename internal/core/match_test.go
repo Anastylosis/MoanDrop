@@ -114,6 +114,52 @@ func TestRankCandidates_Siblings(t *testing.T) {
 	}
 }
 
+func TestEvidenceParts(t *testing.T) {
+	verifiedOffset := int64(500)
+	estOffset := int64(-250)
+	measured, durationDelta := "measured", "duration-delta"
+
+	cases := []struct {
+		name string
+		c    Candidate
+		want []string
+	}{
+		{"exact", Candidate{Confidence: ConfidenceExact}, []string{"byte-identical file"}},
+		{"cross-release", Candidate{Confidence: ConfidenceHigh, CrossRelease: true, HammingDistance: 3, DurationDeltaMs: 120},
+			[]string{"same video, different encode (distance 3, Δ+120ms) — sync usually fine"}},
+		{"sibling verified", Candidate{SiblingOf: 7, SiblingSyncKnown: true, SiblingOffsetMs: verifiedOffset, SiblingOffsetSource: measured},
+			[]string{"another cut of this video, verified shift +500ms"}},
+		{"sibling estimated (duration-delta source)", Candidate{SiblingOf: 7, SiblingSyncKnown: true, SiblingOffsetMs: estOffset, SiblingOffsetSource: durationDelta},
+			[]string{"another cut of this video, estimated shift -250ms — sync unverified"}},
+		{"sibling unknown sync", Candidate{SiblingOf: 7}, []string{"another cut of this video — sync unknown"}},
+		{"plain high confidence, no evidence to add", Candidate{Confidence: ConfidenceHigh}, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := EvidenceParts(tc.c)
+			if len(got) != len(tc.want) {
+				t.Fatalf("EvidenceParts(%+v) = %v, want %v", tc.c, got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("part %d = %q, want %q", i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestForRelease(t *testing.T) {
+	sibling := Candidate{SiblingOf: 7, Release: client.Release{ID: 42}}
+	if got := ForRelease(sibling); got != 42 {
+		t.Errorf("sibling: ForRelease = %d, want the matched release's id (42)", got)
+	}
+	plain := Candidate{Confidence: ConfidenceExact, Release: client.Release{ID: 1}}
+	if got := ForRelease(plain); got != 0 {
+		t.Errorf("non-sibling: ForRelease = %d, want 0 (author's own timing)", got)
+	}
+}
+
 func TestSortAndSelectTracks(t *testing.T) {
 	tracks := []client.TrackSummary{
 		{ID: 1, Lang: "de"},

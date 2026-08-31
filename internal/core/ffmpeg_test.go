@@ -304,3 +304,36 @@ func TestEnsureFFmpeg_ChecksumMismatchRejected(t *testing.T) {
 		t.Fatalf("extracted binary should not exist after a checksum mismatch, stat err = %v", err)
 	}
 }
+
+func TestExtractZipEntry_UnwritableDestDirLeavesNoFile(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Getuid() == 0 {
+		t.Skip("directory permissions do not block writes for this user/OS")
+	}
+	dir := t.TempDir()
+	zipPath := filepath.Join(dir, "a.zip")
+	if err := os.WriteFile(zipPath, zipBytes(t, map[string]string{"ffmpeg": "data"}), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = zr.Close() }()
+
+	ro := filepath.Join(dir, "ro")
+	if err := os.Mkdir(ro, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(ro, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(ro, 0o755) })
+
+	dest := filepath.Join(ro, "ffmpeg")
+	if err := extractZipEntry(zr.File[0], dest); err == nil {
+		t.Fatal("want error extracting into an unwritable directory")
+	}
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		t.Fatalf("a failed extract must leave no file at dest, stat err = %v", err)
+	}
+}
