@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -44,51 +43,20 @@ func runPush(ctx context.Context, videoPath, subPath, lang string, noPhash bool)
 		fmt.Fprintf(os.Stderr, "language %s (from the filename; --lang overrides)\n", lang)
 	}
 
-	body, err := os.ReadFile(subPath)
-	if err != nil {
-		return err
-	}
-	if len(body) > core.MaxTrackBytes {
-		return fmt.Errorf("%s is %d bytes, over the server's %d byte cap for a subtitle", subPath, len(body), core.MaxTrackBytes)
-	}
-
 	var ffmpeg, ffprobe string
 	if !noPhash {
+		var err error
 		ffmpeg, ffprobe, err = core.EnsureFFmpeg(ctx, flagFFmpeg, flagFFprobe)
 		if err != nil {
 			return fmt.Errorf("%w (or pass --no-phash to upload with the exact file hash only)", err)
 		}
 	}
 	fmt.Fprintln(os.Stderr, core.FingerprintingMessage)
-	fp, err := core.FingerprintFile(ctx, ffmpeg, ffprobe, videoPath)
+
+	res, err := core.PushSidecar(ctx, client.New(flagServer, flagToken), videoPath, subPath, lang, ffmpeg, ffprobe)
 	if err != nil {
 		return err
 	}
-
-	req := client.UploadRequest{
-		OSHash:     fp.OSHash.String(),
-		DurationMs: fp.DurationMs,
-		Lang:       lang,
-		Body:       string(body),
-		// The filename stem feeds the server's name-based fallback matching;
-		// it is the one piece of metadata a non-Stash user reliably has.
-		Stem: strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath)),
-	}
-	if fp.PHash != nil {
-		req.PHash = fp.PHash.String()
-	}
-
-	res, err := client.New(flagServer, flagToken).Upload(ctx, req)
-	if err != nil {
-		return err
-	}
-	switch {
-	case res.Duplicate:
-		fmt.Printf("already on the node: track %d (release %d) — nothing new to share\n", res.TrackID, res.ReleaseID)
-	case res.Generated:
-		fmt.Printf("uploaded as track %d (release %d), detected as AI-generated\n", res.TrackID, res.ReleaseID)
-	default:
-		fmt.Printf("uploaded as track %d (release %d)\n", res.TrackID, res.ReleaseID)
-	}
+	fmt.Println(res.Message())
 	return nil
 }
