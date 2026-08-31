@@ -15,6 +15,10 @@ func Run(initialVideo string) error {
 	w := a.NewWindow("MoanDrop")
 
 	u := &appUI{app: a, win: w}
+	// Sized before Show: an empty window otherwise appears at its minimum
+	// size, and some window managers ignore a resize after mapping.
+	w.Resize(fyne.NewSize(720, 560))
+	w.CenterOnScreen()
 	w.Show()
 
 	proceed := func() {
