@@ -189,3 +189,17 @@ func TestPromptSettings_SaveAppliesCloseBehaviorImmediately(t *testing.T) {
 		t.Fatal("Save must apply the close-behavior pref immediately (applyCloseBehavior sets the intercept unconditionally for the quit choice)")
 	}
 }
+
+func TestPromptSettings_ReopenReflectsSavedQuit(t *testing.T) {
+	u := newTestApp(test.NewApp())
+	setCloseBehavior(u.app.Preferences(), closeBehaviorQuit)
+	u.promptSettings()
+
+	rg := findRadioGroup(topOverlay(u.win))
+	if rg == nil {
+		t.Fatal("settings dialog has no close-behavior radio group")
+	}
+	if rg.Selected != closeBehaviorQuitLabel {
+		t.Errorf("radio selection = %q, want %q after saving quit", rg.Selected, closeBehaviorQuitLabel)
+	}
+}
