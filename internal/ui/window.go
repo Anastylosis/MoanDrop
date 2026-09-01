@@ -179,8 +179,15 @@ func (u *appUI) promptSettings() {
 	tokenMsg := widget.NewLabel(tokenDialogText)
 	tokenMsg.Wrapping = fyne.TextWrapWord
 	tokenEntry := widget.NewPasswordEntry()
-	tokenEntry.SetText(token(p))
-	tokenEntry.SetPlaceHolder("paste your account token")
+	// Prefilled from the saved preference only: token() also falls back to
+	// MOANDROP_TOKEN, and prefilling that here would silently persist an
+	// env-sourced token on a Save made for unrelated reasons.
+	tokenEntry.SetText(p.String(prefToken))
+	if tokenEntry.Text == "" && token(p) != "" {
+		tokenEntry.SetPlaceHolder("using MOANDROP_TOKEN from the environment")
+	} else {
+		tokenEntry.SetPlaceHolder("paste your account token")
+	}
 
 	closeGroup := widget.NewRadioGroup([]string{closeBehaviorHideLabel, closeBehaviorQuitLabel}, nil)
 	closeGroup.SetSelected(closeBehaviorLabel(closeBehavior(p)))
@@ -335,6 +342,17 @@ func (u *appUI) voteRowWidget(tr TrackRow, counts *widget.Label) fyne.CanvasObje
 				state = "-1"
 			}
 			box.Add(widget.NewLabel("your vote: " + state))
+			// The opposite direction stays clickable: casting again
+			// replaces the vote server-side, no retract-first needed.
+			if v < 0 {
+				box.Add(widget.NewButton("+1", func() {
+					u.onUpvote(trackID, counts, rebuild)
+				}))
+			} else {
+				box.Add(widget.NewButton("-1", func() {
+					u.onDownvote(trackID, counts, rebuild)
+				}))
+			}
 			box.Add(widget.NewButton("remove vote", func() {
 				u.castUnvote(trackID, counts, rebuild)
 			}))

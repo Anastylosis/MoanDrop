@@ -242,3 +242,33 @@ func TestVote_NoTokenOpensTokenDialogFirstThenVotes(t *testing.T) {
 		t.Errorf("token() = %q, want the just-saved token to persist", token(u.app.Preferences()))
 	}
 }
+
+func TestVote_OppositeButtonReplacesWithoutRetract(t *testing.T) {
+	u, doneCh, fake := renderOneTrack(t, 0, 0)
+	setToken(u.app.Preferences(), "tok")
+
+	tapButtonOn(t, u.win, "+1")
+	waitDo(t, doneCh)
+	if findButton(u.win.Content(), "-1") == nil {
+		t.Fatal("a voted row must keep the opposite direction clickable")
+	}
+
+	tapButtonOn(t, u.win, "-1")
+	entry := findEntry(topOverlay(u.win))
+	if entry == nil {
+		t.Fatal("replacing down-vote still asks for its reason")
+	}
+	test.Type(entry, "mistimed")
+	tapButtonOn(t, u.win, "Vote")
+	waitDo(t, doneCh)
+
+	if fake.putCount() != 2 {
+		t.Fatalf("server saw %d PUT vote requests, want 2 (cast then replace)", fake.putCount())
+	}
+	if value, reason := fake.lastPut(); value != -1 || reason != "mistimed" {
+		t.Errorf("replace sent value=%d reason=%q, want -1 %q", value, reason, "mistimed")
+	}
+	if u.votes[42] != -1 {
+		t.Errorf("session memory = %d, want -1 after the replace", u.votes[42])
+	}
+}
