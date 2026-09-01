@@ -175,6 +175,8 @@ func (u *appUI) attemptDownload(c *client.Client, videoPath string, tr TrackRow,
 // drop's explicit pairing) for names FindSidecars wouldn't recognize on its
 // own. Discovery is best-effort — a directory read failure still leaves the
 // manual "Share a subtitle..." button reachable via renderShareSection.
+// Deliberately NOT re-run after a download: the file the node just handed
+// over is nothing to share back, so offering it would only be noise.
 func (u *appUI) refreshShareSection(videoPath string, extraSubs ...string) {
 	sidecars, _ := core.FindSidecars(videoPath)
 	seen := make(map[string]bool, len(sidecars)+len(extraSubs))
@@ -227,6 +229,16 @@ func (u *appUI) pushSidecar(subPath, lang string) {
 	server := serverURL(u.app.Preferences())
 	tok := token(u.app.Preferences())
 
+	// Size-capped read first, so an oversized file gets its own error
+	// instead of one from the ffmpeg resolution that would follow.
+	body, err := core.ReadSubtitle(subPath)
+	if err != nil {
+		u.shareBusy = false
+		u.setStatus("")
+		showError(u.win, err)
+		return
+	}
+
 	u.resolveFFmpegForShare(func(ffmpeg, ffprobe string) {
 		if gen != u.matchGen {
 			u.shareBusy = false
@@ -234,7 +246,7 @@ func (u *appUI) pushSidecar(subPath, lang string) {
 		}
 		go func() {
 			c := client.New(server, tok)
-			res, err := core.PushSidecar(context.Background(), c, videoPath, subPath, lang, ffmpeg, ffprobe)
+			res, err := core.PushSidecar(context.Background(), c, videoPath, lang, body, ffmpeg, ffprobe)
 			fyne.Do(func() {
 				u.shareBusy = false
 				if gen != u.matchGen {

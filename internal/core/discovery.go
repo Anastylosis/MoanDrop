@@ -54,6 +54,12 @@ func FindSidecars(videoPath string) ([]SidecarCandidate, error) {
 		base := strings.TrimSuffix(name, ext)
 		path := filepath.Join(dir, name)
 
+		// Stat follows symlinks; DirEntry.IsDir above does not, so a
+		// symlink to a directory named like a sidecar would slip through.
+		if info, err := os.Stat(path); err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+
 		if base == stem {
 			out = append(out, SidecarCandidate{Path: path})
 			continue

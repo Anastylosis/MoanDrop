@@ -9,8 +9,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/Anastylosis/MoanDrop/internal/core"
 	"github.com/Anastylosis/MoanSubs/client"
 )
 
@@ -113,5 +115,30 @@ func TestRunPush_UnresolvableLangErrorsBeforeUpload(t *testing.T) {
 	}
 	if hit {
 		t.Error("an unresolvable language must fail before ever reaching the network")
+	}
+}
+
+func TestRunPush_OversizeFailsBeforeFFmpegResolution(t *testing.T) {
+	dir := t.TempDir()
+	video := filepath.Join(dir, "scene.mp4")
+	sub := filepath.Join(dir, "scene.en.srt")
+	if err := os.WriteFile(video, []byte("v"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sub, bytes.Repeat([]byte{'x'}, core.MaxTrackBytes+1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Nothing on PATH and downloads off: were ffmpeg resolved before the
+	// size check, its error would mask the real one (the master-era order
+	// this test freezes).
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("MOANDROP_NO_DOWNLOAD", "1")
+
+	err := runPush(context.Background(), video, sub, "en", false)
+	if err == nil {
+		t.Fatal("want the size-cap error")
+	}
+	if !strings.Contains(err.Error(), "byte cap") {
+		t.Fatalf("err = %v, want the size-cap error, not an ffmpeg one", err)
 	}
 }
