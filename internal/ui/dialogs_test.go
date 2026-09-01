@@ -116,3 +116,53 @@ func TestShowFFmpegMissing_Cancel(t *testing.T) {
 		t.Error("onFallback was called after Cancel, want no callback")
 	}
 }
+
+func TestPromptDownvoteReason_EmptySubmissionIsDropped(t *testing.T) {
+	win := dialogWindow()
+	called := false
+	promptDownvoteReason(win, func(reason string) { called = true })
+
+	if !strings.Contains(strings.Join(collectTexts(topOverlay(win)), "\n"), downvoteReasonText) {
+		t.Error("dialog does not explain why a reason is required")
+	}
+
+	tapButtonOn(t, win, "Vote") // entry left blank
+	if called {
+		t.Error("onReason was called with an empty reason, want it blocked client-side")
+	}
+}
+
+func TestPromptDownvoteReason_NonEmptySubmissionSendsReason(t *testing.T) {
+	win := dialogWindow()
+	var got string
+	called := false
+	promptDownvoteReason(win, func(reason string) {
+		called = true
+		got = reason
+	})
+
+	entry := findEntry(topOverlay(win))
+	if entry == nil {
+		t.Fatal("down-vote dialog has no entry field")
+	}
+	test.Type(entry, "bad sync")
+	tapButtonOn(t, win, "Vote")
+
+	if !called {
+		t.Fatal("onReason was not called for a non-empty reason")
+	}
+	if got != "bad sync" {
+		t.Errorf("reason = %q, want %q", got, "bad sync")
+	}
+}
+
+func TestPromptDownvoteReason_Cancel(t *testing.T) {
+	win := dialogWindow()
+	called := false
+	promptDownvoteReason(win, func(reason string) { called = true })
+
+	tapButtonOn(t, win, "Cancel")
+	if called {
+		t.Error("onReason was called after Cancel, want no callback")
+	}
+}

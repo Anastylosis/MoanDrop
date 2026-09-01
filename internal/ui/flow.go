@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/widget"
 
 	"github.com/Anastylosis/MoanDrop/internal/core"
 	"github.com/Anastylosis/MoanSubs/client"
@@ -261,6 +262,105 @@ func (u *appUI) pushSidecar(subPath, lang string) {
 			})
 		}()
 	})
+}
+
+// onUpvote is the +1 button's handler: ensure a token first (the share
+// flow's ensure-then-continue pattern), then cast straight away — an
+// up-vote never carries a reason.
+func (u *appUI) onUpvote(trackID int64, counts *widget.Label, rebuild func()) {
+	if token(u.app.Preferences()) == "" {
+		u.promptToken(func() {
+			u.onUpvote(trackID, counts, rebuild)
+		})
+		return
+	}
+	u.castVote(trackID, 1, "", "", counts, rebuild)
+}
+
+// onDownvote is the -1 button's handler: ensure a token first, then ask for
+// the reason the server requires on a down-vote.
+func (u *appUI) onDownvote(trackID int64, counts *widget.Label, rebuild func()) {
+	if token(u.app.Preferences()) == "" {
+		u.promptToken(func() {
+			u.onDownvote(trackID, counts, rebuild)
+		})
+		return
+	}
+	promptDownvoteReason(u.win, func(reason string) {
+		u.castVote(trackID, -1, reason, "", counts, rebuild)
+	})
+}
+
+// castVote runs client.Vote off the UI goroutine, serialized by voteBusy
+// the same way downloadBusy/shareBusy serialize their own actions. gen is
+// captured up front so a vote against a track from a superseded match
+// can't paint over whatever the window has moved on to. counts and rebuild
+// are the row's own widgets, updated in place rather than through a full
+// renderCandidates rebuild.
+func (u *appUI) castVote(trackID int64, value int, reason, note string, counts *widget.Label, rebuild func()) {
+	if u.voteBusy {
+		return
+	}
+	u.voteBusy = true
+	gen := u.matchGen
+	c := client.New(serverURL(u.app.Preferences()), token(u.app.Preferences()))
+
+	go func() {
+		up, down, err := c.Vote(context.Background(), trackID, value, reason, note)
+		fyne.Do(func() {
+			u.voteBusy = false
+			if gen != u.matchGen {
+				return
+			}
+			if err != nil {
+				showError(u.win, err)
+				return
+			}
+			u.votes[trackID] = value
+			counts.SetText(voteCountsText(up, down))
+			rebuild()
+		})
+	}()
+}
+
+// castUnvote runs client.Unvote then re-fetches the counts with
+// VoteCounts, since Unvote's DELETE answers 204 with no body (see its doc
+// comment) — this is how the row learns the post-retract tally.
+func (u *appUI) castUnvote(trackID int64, counts *widget.Label, rebuild func()) {
+	if u.voteBusy {
+		return
+	}
+	u.voteBusy = true
+	gen := u.matchGen
+	c := client.New(serverURL(u.app.Preferences()), token(u.app.Preferences()))
+
+	go func() {
+		err := c.Unvote(context.Background(), trackID)
+		if err != nil {
+			fyne.Do(func() {
+				u.voteBusy = false
+				if gen != u.matchGen {
+					return
+				}
+				showError(u.win, err)
+			})
+			return
+		}
+		up, down, cerr := c.VoteCounts(context.Background(), trackID)
+		fyne.Do(func() {
+			u.voteBusy = false
+			if gen != u.matchGen {
+				return
+			}
+			delete(u.votes, trackID)
+			rebuild()
+			if cerr != nil {
+				showError(u.win, cerr)
+				return
+			}
+			counts.SetText(voteCountsText(up, down))
+		})
+	}()
 }
 
 // resolveFFmpegForShare finds ffmpeg the same way startVideo does

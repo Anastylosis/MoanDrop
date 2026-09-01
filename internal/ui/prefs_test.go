@@ -53,3 +53,26 @@ func TestToken_EmptyWithNoPreferenceOrEnv(t *testing.T) {
 		t.Errorf("token() = %q, want empty", got)
 	}
 }
+
+func TestCloseBehavior_DefaultsToHide(t *testing.T) {
+	p := test.NewApp().Preferences()
+	if got := closeBehavior(p); got != closeBehaviorHide {
+		t.Errorf("closeBehavior() on a fresh install = %q, want %q", got, closeBehaviorHide)
+	}
+}
+
+func TestCloseBehavior_PersistsQuit(t *testing.T) {
+	p := test.NewApp().Preferences()
+	setCloseBehavior(p, closeBehaviorQuit)
+	if got := closeBehavior(p); got != closeBehaviorQuit {
+		t.Errorf("closeBehavior() = %q, want the saved %q", got, closeBehaviorQuit)
+	}
+}
+
+func TestCloseBehavior_UnrecognizedValueFallsBackToHide(t *testing.T) {
+	p := test.NewApp().Preferences()
+	setCloseBehavior(p, "something-else")
+	if got := closeBehavior(p); got != closeBehaviorHide {
+		t.Errorf("closeBehavior() with an unrecognized saved value = %q, want the safe default %q", got, closeBehaviorHide)
+	}
+}

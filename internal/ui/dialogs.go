@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 
@@ -64,6 +65,33 @@ func confirmOverwrite(win fyne.Window, path string, onConfirm func()) {
 
 func showError(win fyne.Window, err error) {
 	dialog.ShowError(err, win)
+}
+
+// downvoteReasonText is the one-sentence explainer shown alongside the
+// entry: the server requires a reason on a down-vote (client.Vote's doc
+// comment) so down-votes stay accountable rather than anonymous.
+const downvoteReasonText = "A down-vote needs a reason — the server requires one so down-votes stay accountable."
+
+// promptDownvoteReason asks for the reason a down-vote requires. onReason
+// is never called on cancel or an empty entry — an empty submission is
+// simply dropped, the same "no-op on blank input" the language dialog uses.
+func promptDownvoteReason(win fyne.Window, onReason func(reason string)) {
+	msg := widget.NewLabel(downvoteReasonText)
+	msg.Wrapping = fyne.TextWrapWord
+	entry := widget.NewEntry()
+	entry.SetPlaceHolder("why is this subtitle bad?")
+	content := container.NewVBox(msg, entry)
+	d := dialog.NewCustomConfirm("Down-vote reason", "Vote", "Cancel", content, func(ok bool) {
+		if !ok {
+			return
+		}
+		reason := entry.Text
+		if reason == "" {
+			return
+		}
+		onReason(reason)
+	}, win)
+	d.Show()
 }
 
 // askLanguage prompts for a subtitle's language when its filename carried
