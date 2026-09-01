@@ -43,9 +43,13 @@ func runPush(ctx context.Context, videoPath, subPath, lang string, noPhash bool)
 		fmt.Fprintf(os.Stderr, "language %s (from the filename; --lang overrides)\n", lang)
 	}
 
+	body, err := core.ReadSubtitle(subPath)
+	if err != nil {
+		return err
+	}
+
 	var ffmpeg, ffprobe string
 	if !noPhash {
-		var err error
 		ffmpeg, ffprobe, err = core.EnsureFFmpeg(ctx, flagFFmpeg, flagFFprobe)
 		if err != nil {
 			return fmt.Errorf("%w (or pass --no-phash to upload with the exact file hash only)", err)
@@ -53,7 +57,7 @@ func runPush(ctx context.Context, videoPath, subPath, lang string, noPhash bool)
 	}
 	fmt.Fprintln(os.Stderr, core.FingerprintingMessage)
 
-	res, err := core.PushSidecar(ctx, client.New(flagServer, flagToken), videoPath, subPath, lang, ffmpeg, ffprobe)
+	res, err := core.PushSidecar(ctx, client.New(flagServer, flagToken), videoPath, lang, body, ffmpeg, ffprobe)
 	if err != nil {
 		return err
 	}

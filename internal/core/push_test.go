@@ -46,7 +46,7 @@ func TestPushSidecar_SendsFingerprintAndBody(t *testing.T) {
 	sub := writeSub(t, dir, "scene.en.srt", "1\n00:00:01,000 --> 00:00:02,000\nhi\n")
 	c := client.New(srv.URL, "tok")
 
-	res, err := PushSidecar(context.Background(), c, video, sub, "en", "", "")
+	res, err := PushSidecar(context.Background(), c, video, "en", mustReadSubtitle(t, sub), "", "")
 	if err != nil {
 		t.Fatalf("PushSidecar: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestPushSidecar_EmptyLangRejectedBeforeNetworkCall(t *testing.T) {
 	sub := writeSub(t, dir, "scene.srt", "body")
 	c := client.New(srv.URL, "tok")
 
-	if _, err := PushSidecar(context.Background(), c, video, sub, "", "", ""); err == nil {
+	if _, err := PushSidecar(context.Background(), c, video, "", mustReadSubtitle(t, sub), "", ""); err == nil {
 		t.Fatal("want error for an empty language")
 	}
 	if hit {
@@ -84,23 +84,12 @@ func TestPushSidecar_EmptyLangRejectedBeforeNetworkCall(t *testing.T) {
 	}
 }
 
-func TestPushSidecar_OversizeBodyRejected(t *testing.T) {
-	hit := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hit = true
-	}))
-	t.Cleanup(srv.Close)
+func TestReadSubtitle_OversizeBodyRejected(t *testing.T) {
 	dir := t.TempDir()
-	video := filepath.Join(dir, "scene.mp4")
-	_ = os.WriteFile(video, []byte("v"), 0o644)
 	sub := writeSub(t, dir, "scene.en.srt", strings.Repeat("x", MaxTrackBytes+1))
-	c := client.New(srv.URL, "tok")
 
-	if _, err := PushSidecar(context.Background(), c, video, sub, "en", "", ""); err == nil {
+	if _, err := ReadSubtitle(sub); err == nil {
 		t.Fatal("want error for an oversize body")
-	}
-	if hit {
-		t.Error("an oversize body must fail before ever reaching the network")
 	}
 }
 
@@ -111,7 +100,7 @@ func TestPushSidecar_NoTokenSurfacesClientError(t *testing.T) {
 	sub := writeSub(t, dir, "scene.en.srt", "body")
 	c := client.New("http://127.0.0.1:0", "") // no token, never actually dialed
 
-	if _, err := PushSidecar(context.Background(), c, video, sub, "en", "", ""); err == nil {
+	if _, err := PushSidecar(context.Background(), c, video, "en", mustReadSubtitle(t, sub), "", ""); err == nil {
 		t.Fatal("want the client's own no-token error")
 	}
 }
@@ -130,4 +119,13 @@ func TestPushResult_Message(t *testing.T) {
 			t.Errorf("Message() = %q, want %q", got, c.want)
 		}
 	}
+}
+
+func mustReadSubtitle(t *testing.T, path string) []byte {
+	t.Helper()
+	body, err := ReadSubtitle(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return body
 }

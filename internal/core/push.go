@@ -34,24 +34,30 @@ func (r PushResult) Message() string {
 	}
 }
 
-// PushSidecar fingerprints videoPath and uploads subPath's contents as a
-// subtitle track for it. lang must already be resolved (the CLI's
-// InferSidecarLang-or-flag choice, the GUI's inferred-or-asked choice) —
-// callers own that decision because only they know how to ask the user for
-// one; PushSidecar just refuses to guess with an empty tag. ffmpegPath/
-// ffprobePath empty (mirroring FingerprintFile) uploads with the exact file
-// hash only.
-func PushSidecar(ctx context.Context, c *client.Client, videoPath, subPath, lang, ffmpegPath, ffprobePath string) (PushResult, error) {
-	if lang == "" {
-		return PushResult{}, fmt.Errorf("no language given for %s", filepath.Base(subPath))
-	}
-
+// ReadSubtitle reads a subtitle file and enforces the server's size cap.
+// Callers run it BEFORE resolving ffmpeg so an oversized file fails with
+// its own error instead of hiding behind an unrelated fingerprinting one.
+func ReadSubtitle(subPath string) ([]byte, error) {
 	body, err := os.ReadFile(subPath)
 	if err != nil {
-		return PushResult{}, err
+		return nil, err
 	}
 	if len(body) > MaxTrackBytes {
-		return PushResult{}, fmt.Errorf("%s is %d bytes, over the server's %d byte cap for a subtitle", subPath, len(body), MaxTrackBytes)
+		return nil, fmt.Errorf("%s is %d bytes, over the server's %d byte cap for a subtitle", subPath, len(body), MaxTrackBytes)
+	}
+	return body, nil
+}
+
+// PushSidecar fingerprints videoPath and uploads body (a subtitle read via
+// ReadSubtitle) as a track for it. lang must already be resolved (the
+// CLI's InferSidecarLang-or-flag choice, the GUI's inferred-or-asked
+// choice) — callers own that decision because only they know how to ask
+// the user for one; PushSidecar just refuses to guess with an empty tag.
+// ffmpegPath/ffprobePath empty (mirroring FingerprintFile) uploads with
+// the exact file hash only.
+func PushSidecar(ctx context.Context, c *client.Client, videoPath, lang string, body []byte, ffmpegPath, ffprobePath string) (PushResult, error) {
+	if lang == "" {
+		return PushResult{}, fmt.Errorf("no language given for the subtitle")
 	}
 
 	fp, err := FingerprintFile(ctx, ffmpegPath, ffprobePath, videoPath)
