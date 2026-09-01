@@ -28,6 +28,12 @@ var (
 )
 
 func main() {
+	// Cobra's Windows mousetrap guard rejects Explorer double-clicks with
+	// "This is a command line tool..." before RunE ever runs — invisible
+	// in a windowsgui build, so the app just never appears. Double-click
+	// IS this app's front door; empty text disables the guard.
+	cobra.MousetrapHelpText = ""
+
 	root := &cobra.Command{
 		Use:           "moandrop",
 		Short:         "Find and share subtitles for your videos by fingerprint, not filename",
