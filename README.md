@@ -74,9 +74,13 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
 - **Privacy**: the window always shows the same claim the CLI prints
   before fingerprinting — "the video never leaves this machine" — fingerprints
   only ever leave the machine, never the file.
-- **Server**: File → Server… sets the moansubs node to query, saved for
-  next launch; it defaults to the same node the CLI does
-  (`https://moansubs.org`).
+- **Settings**: File → Settings… holds the moansubs node to query (defaults
+  to `https://moansubs.org`, same as the CLI), the account token (needed
+  only for sharing and voting — finding and downloading stay anonymous),
+  and what closing the window does — hide to the system tray (the
+  default) or quit outright, for desktops where the tray icon doesn't
+  show (see Tray, below). All three save for next launch, and the
+  close-behavior choice takes effect immediately.
 - **Results**: each release shows the same evidence wording as `match`
   (byte-identical, a verified/estimated/unknown-sync sibling cut, and so
   on), and every track lists its language. A generated track carries an
@@ -85,6 +89,14 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
 - **Download**: click a track to write its sidecar beside the video. An
   existing sidecar is never replaced silently — a confirmation dialog asks
   first, same as `--overwrite` gates it on the CLI.
+- **Vote**: every track has +1/-1 buttons — voting on the best cut of a
+  scene helps it rise for the next person who looks it up. Voting needs an
+  account token, prompted for on the spot if Settings hasn't set one yet;
+  a down-vote asks for a one-line reason first, since the server requires
+  one so down-votes stay accountable. A track you've voted on this session
+  shows a "remove vote" button instead — retracting is intentionally
+  session-local, since lookups are anonymous and the window has no way to
+  know about a vote cast in an earlier session.
 - **Share**: below the results, a small "Share what you have" section lists
   any subtitle files already sitting beside the video (the same
   `<stem>.<lang>.srt` sidecar convention the window writes, read in
@@ -92,19 +104,20 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   always there too, opening a file picker for anything discovery didn't
   catch. Dropping a video together with one or more `.srt`/`.vtt` files
   pairs them explicitly for sharing, even with unconventional filenames.
-  Sharing needs an account token — File → Account token… saves one in
-  Preferences; absent that, `MOANDROP_TOKEN` works too, so a CLI user's
-  env just works in the window (the preference wins when both are set). A
-  push that matches a subtitle already on the node reports that calmly
-  ("already on the node") rather than as an error — the server never
-  stores identical bytes twice.
+  Sharing needs an account token, the same as voting does — Settings saves
+  one in Preferences; absent that, `MOANDROP_TOKEN` works too, so a CLI
+  user's env just works in the window (the preference wins when both are
+  set). A push that matches a subtitle already on the node reports that
+  calmly ("already on the node") rather than as an error — the server
+  never stores identical bytes twice.
 - **No ffmpeg**: a dialog gives the same guidance `match` prints, with a
   button to fall back to exact-file (oshash-only) matching instead of
   installing ffmpeg — the GUI equivalent of `--no-phash`.
-- **Tray**: closing the window hides it to the system tray, keeping the
-  drop target a click away; quit from the File menu or the tray entry.
-  On GNOME the tray icon needs the AppIndicator extension — without it
-  the hidden window is only reachable by running `moandrop` again.
+- **Tray**: by default, closing the window hides it to the system tray,
+  keeping the drop target a click away; quit from the File menu or the
+  tray entry. On GNOME the tray icon needs the AppIndicator extension —
+  without it the hidden window is only reachable by running `moandrop`
+  again, or by switching Settings' close behavior to quit outright.
 
 ### Build notes
 
