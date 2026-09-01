@@ -52,6 +52,9 @@ type Candidate struct {
 	// inferred from the runtime difference. The UI must not present the
 	// latter as the former — a guess that looks like a measurement is how sync silently drifts.
 	SiblingOffsetSource string `json:"sibling_offset_source,omitempty"`
+	// SiblingSyncVerified is the server's fit-report verdict: enough
+	// independent accounts confirmed the pairing plays in sync as served.
+	SiblingSyncVerified bool `json:"sibling_sync_verified,omitempty"`
 }
 
 // RankCandidates filters lookup results down to real matches, client-side
@@ -144,6 +147,7 @@ func siblingCandidates(r client.Release, deltaMs int64) []Candidate {
 			CrossRelease: true,
 			SiblingOf:    sb.ReleaseID,
 		}
+		c.SiblingSyncVerified = sb.SyncVerified
 		if sb.OffsetMs != nil {
 			c.SiblingSyncKnown = true
 			c.SiblingOffsetMs = *sb.OffsetMs
@@ -182,6 +186,11 @@ func EvidenceParts(c Candidate) []string {
 		parts = append(parts, "byte-identical file")
 	case c.CrossRelease:
 		parts = append(parts, fmt.Sprintf("same video, different encode (distance %d, Δ%+dms) — sync usually fine", c.HammingDistance, c.DurationDeltaMs))
+	}
+	// A separate signal from a measured shift — users saying it lined up as
+	// served — appended so it never replaces the offset provenance above.
+	if c.SiblingOf != 0 && c.SiblingSyncVerified {
+		parts = append(parts, "sync confirmed by users")
 	}
 	return parts
 }

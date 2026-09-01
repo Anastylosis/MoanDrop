@@ -126,3 +126,15 @@ func TestReleaseLabel(t *testing.T) {
 		t.Errorf("bare = %q", got)
 	}
 }
+
+func TestReleaseLabel_PrefersServerTitle(t *testing.T) {
+	h := 1080
+	r := client.Release{ID: 7, Height: &h, DurationMs: 60_000, Title: "Some Scene (1080p)"}
+	if got := ReleaseLabel(r); got != "Some Scene (1080p)" {
+		t.Errorf("got %q, want the server title", got)
+	}
+	r.Title = ""
+	if got := ReleaseLabel(r); got == "" || got == "release 7" {
+		t.Errorf("descriptor fallback broke: %q", got)
+	}
+}

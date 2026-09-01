@@ -23,6 +23,7 @@ func (u *appUI) startVideo(path string, extraSubs ...string) {
 	u.videoPath = path
 	u.matchGen++
 	gen := u.matchGen
+	u.hideFitPrompt()
 	u.setStatus("")
 	u.list.RemoveAll()
 	u.list.Refresh()
@@ -135,6 +136,7 @@ func (u *appUI) downloadTrack(tr TrackRow) {
 }
 
 func (u *appUI) attemptDownload(c *client.Client, videoPath string, tr TrackRow, overwrite bool) {
+	gen := u.matchGen
 	go func() {
 		res, err := core.DownloadTrack(context.Background(), c, videoPath, tr.Track.ID, tr.ForRelease, tr.Track.Lang, overwrite)
 		if err != nil {
@@ -167,6 +169,9 @@ func (u *appUI) attemptDownload(c *client.Client, videoPath string, tr TrackRow,
 		fyne.Do(func() {
 			u.downloadBusy = false
 			u.setStatus(fmt.Sprintf("%s %s%s", res.Verb(), res.Path, res.Note()))
+			if gen == u.matchGen {
+				u.offerFitPrompt(tr)
+			}
 		})
 	}()
 }

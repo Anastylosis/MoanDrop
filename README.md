@@ -81,7 +81,9 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   default) or quit outright, for desktops where the tray icon doesn't
   show (see Tray, below). All three save for next launch, and the
   close-behavior choice takes effect immediately.
-- **Results**: each release shows the same evidence wording as `match`
+- **Results**: each card is titled by the database's own display title
+  when it has one (curated, or derived from a cleaned upload filename),
+  else by resolution/runtime/codec. Each release shows the same evidence wording as `match`
   (byte-identical, a verified/estimated/unknown-sync sibling cut, and so
   on), and every track lists its language. A generated track carries an
   "AI" badge; click it for the same explainer the CLI prints under a
@@ -110,6 +112,11 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   set). A push that matches a subtitle already on the node reports that
   calmly ("already on the node") rather than as an error — the server
   never stores identical bytes twice.
+- **Did it fit?**: after downloading a subtitle authored for another cut,
+  the window asks whether it lined up. The verdict (never a timing value)
+  is reported with your token; enough independent "fits" mark the pairing
+  **sync confirmed by users** in everyone's results, and misfit reports
+  reach the moderators. Only offered when the server supports it.
 - **No ffmpeg**: a dialog gives the same guidance `match` prints, with a
   button to fall back to exact-file (oshash-only) matching instead of
   installing ffmpeg — the GUI equivalent of `--no-phash`.
@@ -137,6 +144,8 @@ otherwise open behind it; the release builds do (release.yml's
   subtitle authored for *another cut* of the same video. When a timing
   shift for a cut is known, the server applies it on download; when it
   says the sync is unverified, believe it.
+- **sync confirmed by users** — enough people reported this exact pairing
+  plays in sync as served; a separate signal from a measured shift.
 - **AI** — machine-transcribed, unreviewed. Human-made tracks always sort
   first. AI tracks are usually accurate but may mishear names and slang;
   most of the database is AI-transcribed, so expect the badge often.

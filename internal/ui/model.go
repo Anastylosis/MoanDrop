@@ -26,10 +26,14 @@ type CandidateRow struct {
 	Tracks     []TrackRow
 }
 
-// ReleaseLabel is the card title: the server stores no titles or names —
-// a release is identified by fingerprint — so the label is built from what
-// a lookup does carry: resolution, runtime, codec.
+// ReleaseLabel is the card title: the server's display title (curated by
+// a human, else derived from a cleaned upload filename) when the lookup
+// carries one, else a descriptor built from what it always carries:
+// resolution, runtime, codec.
 func ReleaseLabel(r client.Release) string {
+	if r.Title != "" {
+		return r.Title
+	}
 	var parts []string
 	if r.Height != nil && *r.Height > 0 {
 		parts = append(parts, fmt.Sprintf("%dp", *r.Height))
