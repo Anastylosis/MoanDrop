@@ -54,6 +54,24 @@ func ReleaseLabel(r client.Release) string {
 	return strings.Join(parts, " · ")
 }
 
+// ReleaseByline is the card's credits line: studio and performers as the
+// server knows them, with the catalogue's own collapse — a studio that is
+// just the sole performer's name reads once, not twice. Empty when the
+// server sent neither (an older node simply has no byline).
+func ReleaseByline(r client.Release) string {
+	perfs := strings.Join(r.Performers, ", ")
+	switch {
+	case r.Studio == "":
+		return perfs
+	case len(r.Performers) == 1 && strings.EqualFold(r.Studio, r.Performers[0]):
+		return r.Studio
+	case perfs == "":
+		return r.Studio
+	default:
+		return r.Studio + " — " + perfs
+	}
+}
+
 // BuildCandidateRows turns ranked candidates into what the window renders,
 // without re-sorting: tracks keep RankCandidates' order (human-made before generated).
 func BuildCandidateRows(candidates []core.Candidate) []CandidateRow {

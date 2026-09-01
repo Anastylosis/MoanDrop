@@ -83,7 +83,8 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   close-behavior choice takes effect immediately.
 - **Results**: each card is titled by the database's own display title
   when it has one (curated, or derived from a cleaned upload filename),
-  else by resolution/runtime/codec. Each release shows the same evidence wording as `match`
+  else by resolution/runtime/codec, with a studio/performer byline when
+  the database knows them. Each release shows the same evidence wording as `match`
   (byte-identical, a verified/estimated/unknown-sync sibling cut, and so
   on), and every track lists its language. A generated track carries an
   "AI" badge; click it for the same explainer the CLI prints under a
