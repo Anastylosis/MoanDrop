@@ -37,7 +37,12 @@ type appUI struct {
 	videoPath    string
 	matchGen     int
 	downloadBusy bool
-	shareBusy    bool
+	fitPrompt    *fyne.Container
+	fitBusy      bool
+	// fitFeature caches the once-per-run "fit" feature probe; nil = not
+	// yet probed. Like every field above: UI goroutine only.
+	fitFeature *bool
+	shareBusy  bool
 
 	// votes remembers this session's own cast votes by trackID (1 or -1) —
 	// only enough to decide whether a row shows the +1/-1 buttons or the
@@ -101,10 +106,12 @@ func (u *appUI) build() {
 	// area, not the results' own scroll region, and by using plain,
 	// unemphasized labels.
 	u.shareBox = container.NewVBox()
+	u.fitPrompt = container.NewHBox()
+	u.fitPrompt.Hide()
 
 	content := container.NewBorder(
 		container.NewVBox(privacy, dropArea, u.busy, u.shareBox),
-		u.status,
+		container.NewVBox(u.fitPrompt, u.status),
 		nil, nil,
 		u.scroll,
 	)

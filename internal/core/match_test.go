@@ -183,3 +183,20 @@ func TestSortAndSelectTracks(t *testing.T) {
 		t.Errorf("all-languages: got %d tracks, want 3 (en, pt, de)", len(all))
 	}
 }
+
+func TestEvidenceParts_SyncConfirmedByUsers(t *testing.T) {
+	c := Candidate{SiblingOf: 4, SiblingSyncVerified: true}
+	parts := EvidenceParts(c)
+	found := false
+	for _, p := range parts {
+		if p == "sync confirmed by users" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("EvidenceParts = %v, want the fit-report confirmation appended", parts)
+	}
+	if got := EvidenceParts(Candidate{SiblingOf: 4}); len(got) != 1 {
+		t.Errorf("unverified sibling gained extra wording: %v", got)
+	}
+}
