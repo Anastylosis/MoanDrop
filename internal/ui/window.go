@@ -278,8 +278,14 @@ func (u *appUI) renderCandidates(rows []CandidateRow) {
 				sawGenerated = true
 			}
 		}
+		body := fyne.CanvasObject(trackRows)
+		if byline := ReleaseByline(row.Release); byline != "" {
+			bl := widget.NewLabelWithStyle(byline, fyne.TextAlignLeading, fyne.TextStyle{Italic: true})
+			bl.Wrapping = fyne.TextWrapWord
+			body = container.NewVBox(bl, trackRows)
+		}
 		card := widget.NewCard(ReleaseLabel(row.Release),
-			fmt.Sprintf("%s (release %d)", header, row.Release.ID), trackRows)
+			fmt.Sprintf("%s (release %d)", header, row.Release.ID), body)
 		u.list.Add(card)
 	}
 	if sawGenerated {

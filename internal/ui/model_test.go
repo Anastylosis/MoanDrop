@@ -138,3 +138,23 @@ func TestReleaseLabel_PrefersServerTitle(t *testing.T) {
 		t.Errorf("descriptor fallback broke: %q", got)
 	}
 }
+
+func TestReleaseByline(t *testing.T) {
+	cases := []struct {
+		studio string
+		perfs  []string
+		want   string
+	}{
+		{"Some Studio", []string{"A Performer", "Another Performer"}, "Some Studio — A Performer, Another Performer"},
+		{"Some Studio", nil, "Some Studio"},
+		{"", []string{"A Performer"}, "A Performer"},
+		{"A Performer", []string{"a performer"}, "A Performer"},
+		{"", nil, ""},
+	}
+	for _, c := range cases {
+		r := client.Release{Studio: c.studio, Performers: c.perfs}
+		if got := ReleaseByline(r); got != c.want {
+			t.Errorf("ReleaseByline(%q, %v) = %q, want %q", c.studio, c.perfs, got, c.want)
+		}
+	}
+}
