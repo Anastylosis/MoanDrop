@@ -13,10 +13,31 @@ import (
 const appID = "org.moansubs.moandrop"
 
 const (
-	prefServerURL   = "server-url"
-	prefAgeAccepted = "age-gate-accepted"
-	prefToken       = "account-token"
+	prefServerURL     = "server-url"
+	prefAgeAccepted   = "age-gate-accepted"
+	prefToken         = "account-token"
+	prefCloseBehavior = "close-behavior"
 )
+
+// closeBehaviorHide/closeBehaviorQuit are the two SetCloseIntercept
+// strategies Settings offers. Hide is the long-standing default, so an
+// install with nothing saved yet (or an unrecognized value) keeps behaving
+// exactly as before.
+const (
+	closeBehaviorHide = "hide"
+	closeBehaviorQuit = "quit"
+)
+
+func closeBehavior(p fyne.Preferences) string {
+	if p.StringWithFallback(prefCloseBehavior, closeBehaviorHide) == closeBehaviorQuit {
+		return closeBehaviorQuit
+	}
+	return closeBehaviorHide
+}
+
+func setCloseBehavior(p fyne.Preferences, v string) {
+	p.SetString(prefCloseBehavior, v)
+}
 
 // serverURL falls back to the CLI's own default so the two never diverge.
 func serverURL(p fyne.Preferences) string {

@@ -38,11 +38,20 @@ type appUI struct {
 	matchGen     int
 	downloadBusy bool
 	shareBusy    bool
+
+	// votes remembers this session's own cast votes by trackID (1 or -1) —
+	// only enough to decide whether a row shows the +1/-1 buttons or the
+	// "remove vote" affordance. Lookups are anonymous, so the window has no
+	// way to learn a vote cast in a previous session; voteBusy serializes
+	// vote calls the same way downloadBusy/shareBusy serialize theirs.
+	votes    map[int64]int
+	voteBusy bool
 }
 
 // build wires up the window's permanent chrome. Called once, after the age
 // gate (if any) has already been resolved.
 func (u *appUI) build() {
+	u.votes = make(map[int64]int)
 	u.win.SetMaster()
 	u.win.SetOnDropped(func(_ fyne.Position, uris []fyne.URI) {
 		if len(uris) == 0 {
@@ -107,8 +116,7 @@ func (u *appUI) build() {
 	u.win.SetMainMenu(fyne.NewMainMenu(
 		fyne.NewMenu("File",
 			fyne.NewMenuItem("Open Video...", u.openVideoDialog),
-			fyne.NewMenuItem("Server...", u.promptServerURL),
-			fyne.NewMenuItem("Account token...", u.promptTokenAlone),
+			fyne.NewMenuItem("Settings...", u.promptSettings),
 		),
 	))
 }
@@ -129,31 +137,79 @@ func (u *appUI) openVideoDialog() {
 	fd.Show()
 }
 
-func (u *appUI) promptServerURL() {
-	entry := widget.NewEntry()
-	entry.SetText(serverURL(u.app.Preferences()))
-	entry.SetPlaceHolder(core.DefaultServerURL)
-	d := dialog.NewCustomConfirm("moansubs server", "Save", "Cancel", entry, func(ok bool) {
-		if !ok {
-			return
-		}
-		url := entry.Text
-		if url == "" {
-			url = core.DefaultServerURL
-		}
-		setServerURL(u.app.Preferences(), url)
-	}, u.win)
-	d.Show()
-}
-
 // tokenDialogText matches CLAUDE.md's explainer: sharing needs a token,
 // finding and downloading never do.
 const tokenDialogText = "A token comes from a free account on the server and is only needed for sharing — finding and downloading stay anonymous."
 
-// promptTokenAlone is the File menu's "Account token..." entry: same
-// dialog as promptToken, with nothing chained after a save.
-func (u *appUI) promptTokenAlone() {
-	u.promptToken(nil)
+// closeBehaviorHideLabel/closeBehaviorQuitLabel are Settings' wording for
+// the close-behavior choice, kept separate from the pref's own stored
+// values (closeBehaviorHide/closeBehaviorQuit) so a future rewording never
+// touches the persisted preference.
+const (
+	closeBehaviorHideLabel = "Hide to the system tray"
+	closeBehaviorQuitLabel = "Quit the app"
+)
+
+func closeBehaviorLabel(v string) string {
+	if v == closeBehaviorQuit {
+		return closeBehaviorQuitLabel
+	}
+	return closeBehaviorHideLabel
+}
+
+func closeBehaviorFromLabel(label string) string {
+	if label == closeBehaviorQuitLabel {
+		return closeBehaviorQuit
+	}
+	return closeBehaviorHide
+}
+
+// promptSettings is the File menu's single "Settings..." entry: server
+// URL, account token, and the close-behavior choice, all in one dialog and
+// all persisted together. The share flow's just-in-time token ask
+// (promptToken) stays separate — this is the deliberate-configuration
+// path, not the "you need one now" path — but both write prefToken.
+func (u *appUI) promptSettings() {
+	p := u.app.Preferences()
+
+	serverEntry := widget.NewEntry()
+	serverEntry.SetText(serverURL(p))
+	serverEntry.SetPlaceHolder(core.DefaultServerURL)
+
+	tokenMsg := widget.NewLabel(tokenDialogText)
+	tokenMsg.Wrapping = fyne.TextWrapWord
+	tokenEntry := widget.NewPasswordEntry()
+	tokenEntry.SetText(token(p))
+	tokenEntry.SetPlaceHolder("paste your account token")
+
+	closeGroup := widget.NewRadioGroup([]string{closeBehaviorHideLabel, closeBehaviorQuitLabel}, nil)
+	closeGroup.SetSelected(closeBehaviorLabel(closeBehavior(p)))
+
+	content := container.NewVBox(
+		widget.NewLabelWithStyle("Server", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		serverEntry,
+		widget.NewLabelWithStyle("Account token", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		tokenMsg,
+		tokenEntry,
+		widget.NewLabelWithStyle("When the window is closed", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		closeGroup,
+	)
+
+	d := dialog.NewCustomConfirm("Settings", "Save", "Cancel", content, func(ok bool) {
+		if !ok {
+			return
+		}
+		url := serverEntry.Text
+		if url == "" {
+			url = core.DefaultServerURL
+		}
+		setServerURL(p, url)
+		setToken(p, tokenEntry.Text)
+		setCloseBehavior(p, closeBehaviorFromLabel(closeGroup.Selected))
+		// Takes effect immediately rather than waiting for the next launch.
+		applyCloseBehavior(u.app, u.win)
+	}, u.win)
+	d.Show()
 }
 
 // promptToken shows the account-token dialog; onSaved runs after a
@@ -231,10 +287,14 @@ func (u *appUI) trackRowWidget(tr TrackRow) fyne.CanvasObject {
 	if k := tr.Track.Kind; k != "" && k != "default" {
 		kind = "  " + k
 	}
-	label := widget.NewLabel(fmt.Sprintf("%s  %s%s  +%d -%d  %d downloads",
-		tr.Track.Lang, made, kind, tr.Track.Up, tr.Track.Down, tr.Track.Downloads))
+	info := widget.NewLabel(fmt.Sprintf("%s  %s%s", tr.Track.Lang, made, kind))
+	downloads := widget.NewLabel(fmt.Sprintf("%d downloads", tr.Track.Downloads))
+	// counts is a handle a cast vote's response (or a post-retract
+	// VoteCounts) updates in place, so voting never needs a full
+	// renderCandidates rebuild — which would also lose the scroll position.
+	counts := widget.NewLabel(voteCountsText(tr.Track.Up, tr.Track.Down))
 
-	items := []fyne.CanvasObject{label}
+	items := []fyne.CanvasObject{info}
 	if tr.Badge != "" {
 		badge := widget.NewButtonWithIcon(tr.Badge, theme.InfoIcon(), func() {
 			dialog.ShowInformation("AI-generated subtitle", tr.Tooltip, u.win)
@@ -242,11 +302,54 @@ func (u *appUI) trackRowWidget(tr TrackRow) fyne.CanvasObject {
 		badge.Importance = widget.WarningImportance
 		items = append(items, badge)
 	}
+	items = append(items, counts, downloads, u.voteRowWidget(tr, counts))
+
 	dl := widget.NewButtonWithIcon("Download", theme.DownloadIcon(), func() {
 		u.downloadTrack(tr)
 	})
 	items = append(items, dl)
 	return container.NewHBox(items...)
+}
+
+// voteCountsText is the counts label's exact text, shared between the
+// initial render and every in-place update after a vote/unvote.
+func voteCountsText(up, down int) string {
+	return fmt.Sprintf("+%d -%d", up, down)
+}
+
+// voteRowWidget builds one track row's vote affordance: +1/-1 buttons, or —
+// once this session has cast a vote on it — a marker plus a "remove vote"
+// button instead. It rebuilds its own contents in place after every
+// vote/unvote rather than asking the caller to re-render the whole
+// candidate list, which would also reset the user's scroll position.
+func (u *appUI) voteRowWidget(tr TrackRow, counts *widget.Label) fyne.CanvasObject {
+	trackID := tr.Track.ID
+	box := container.NewHBox()
+
+	var rebuild func()
+	rebuild = func() {
+		box.RemoveAll()
+		if v, voted := u.votes[trackID]; voted {
+			state := "+1"
+			if v < 0 {
+				state = "-1"
+			}
+			box.Add(widget.NewLabel("your vote: " + state))
+			box.Add(widget.NewButton("remove vote", func() {
+				u.castUnvote(trackID, counts, rebuild)
+			}))
+		} else {
+			box.Add(widget.NewButton("+1", func() {
+				u.onUpvote(trackID, counts, rebuild)
+			}))
+			box.Add(widget.NewButton("-1", func() {
+				u.onDownvote(trackID, counts, rebuild)
+			}))
+		}
+		box.Refresh()
+	}
+	rebuild()
+	return box
 }
 
 // renderShareSection rebuilds the sharing area from sidecars (found beside

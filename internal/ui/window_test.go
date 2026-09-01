@@ -75,3 +75,117 @@ func TestRenderCandidates_ShowsExplainerOnlyWhenGenerated(t *testing.T) {
 		t.Fatalf("with a generated track: got %d list children, want 2 (card + explainer)", len(u.list.Objects))
 	}
 }
+
+// findRadioGroup finds the first *widget.RadioGroup reachable from o.
+func findRadioGroup(o fyne.CanvasObject) *widget.RadioGroup {
+	var found *widget.RadioGroup
+	walkCanvas(o, func(c fyne.CanvasObject) {
+		if found != nil {
+			return
+		}
+		if rg, ok := c.(*widget.RadioGroup); ok {
+			found = rg
+		}
+	})
+	return found
+}
+
+func TestPromptSettings_PersistsServerTokenAndCloseBehavior(t *testing.T) {
+	u := newTestApp(test.NewApp())
+	p := u.app.Preferences()
+
+	u.promptSettings()
+
+	entries := []*widget.Entry{}
+	walkCanvas(topOverlay(u.win), func(c fyne.CanvasObject) {
+		if e, ok := c.(*widget.Entry); ok {
+			entries = append(entries, e)
+		}
+	})
+	if len(entries) != 2 {
+		t.Fatalf("settings dialog has %d entries, want 2 (server, token)", len(entries))
+	}
+	// SetText, not test.Type: the server entry pre-fills with the current
+	// value (core.DefaultServerURL here), and Type appends at the cursor
+	// rather than replacing it.
+	entries[0].SetText("https://example.invalid")
+	entries[1].SetText("s3cr3t")
+
+	rg := findRadioGroup(topOverlay(u.win))
+	if rg == nil {
+		t.Fatal("settings dialog has no close-behavior radio group")
+	}
+	rg.SetSelected(closeBehaviorQuitLabel)
+
+	tapButtonOn(t, u.win, "Save")
+
+	if got := serverURL(p); got != "https://example.invalid" {
+		t.Errorf("serverURL() = %q, want the saved entry", got)
+	}
+	if got := token(p); got != "s3cr3t" {
+		t.Errorf("token() = %q, want the saved entry", got)
+	}
+	if got := closeBehavior(p); got != closeBehaviorQuit {
+		t.Errorf("closeBehavior() = %q, want %q", got, closeBehaviorQuit)
+	}
+}
+
+func TestPromptSettings_DefaultsCloseBehaviorRadioToHide(t *testing.T) {
+	u := newTestApp(test.NewApp())
+	u.promptSettings()
+
+	rg := findRadioGroup(topOverlay(u.win))
+	if rg == nil {
+		t.Fatal("settings dialog has no close-behavior radio group")
+	}
+	if rg.Selected != closeBehaviorHideLabel {
+		t.Errorf("default radio selection = %q, want %q", rg.Selected, closeBehaviorHideLabel)
+	}
+}
+
+func TestPromptSettings_CancelDiscardsChanges(t *testing.T) {
+	u := newTestApp(test.NewApp())
+	p := u.app.Preferences()
+	setServerURL(p, "https://original.invalid")
+
+	u.promptSettings()
+	entries := []*widget.Entry{}
+	walkCanvas(topOverlay(u.win), func(c fyne.CanvasObject) {
+		if e, ok := c.(*widget.Entry); ok {
+			entries = append(entries, e)
+		}
+	})
+	entries[0].SetText("https://changed.invalid")
+
+	tapButtonOn(t, u.win, "Cancel")
+
+	if got := serverURL(p); got != "https://original.invalid" {
+		t.Errorf("serverURL() after Cancel = %q, want the pre-dialog value untouched", got)
+	}
+}
+
+// TestPromptSettings_SaveAppliesCloseBehaviorImmediately covers the spec
+// requirement that the close-behavior choice takes effect on save, not
+// just on the next launch: Save must call applyCloseBehavior on the live
+// window, not merely persist the preference for next time.
+// TestApplyCloseBehavior_* already covers what each pref value wires the
+// intercept to; this test covers that promptSettings' Save actually
+// triggers that wiring.
+func TestPromptSettings_SaveAppliesCloseBehaviorImmediately(t *testing.T) {
+	a := test.NewApp()
+	cw := &captureWindow{Window: a.NewWindow("MoanDrop")}
+	u := &appUI{app: a, win: cw}
+	u.build()
+
+	u.promptSettings()
+	rg := findRadioGroup(topOverlay(u.win))
+	if rg == nil {
+		t.Fatal("settings dialog has no close-behavior radio group")
+	}
+	rg.SetSelected(closeBehaviorQuitLabel)
+	tapButtonOn(t, u.win, "Save")
+
+	if cw.intercept == nil {
+		t.Fatal("Save must apply the close-behavior pref immediately (applyCloseBehavior sets the intercept unconditionally for the quit choice)")
+	}
+}

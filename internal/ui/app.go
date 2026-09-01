@@ -38,8 +38,8 @@ func Run(initialVideo string) error {
 			fyne.NewMenuItem("Show", w.Show),
 		))
 		desk.SetSystemTrayIcon(appIcon)
-		w.SetCloseIntercept(w.Hide)
 	}
+	applyCloseBehavior(a, w)
 
 	if ageGateAccepted(a.Preferences()) {
 		proceed()
@@ -56,6 +56,23 @@ func Run(initialVideo string) error {
 
 	a.Run()
 	return nil
+}
+
+// applyCloseBehavior wires the window's close intercept from the saved
+// Settings preference. Quit is wired unconditionally — Settings offers it
+// precisely for desktops where the tray icon is invisible (e.g. GNOME
+// without the AppIndicator extension), so it must work with no tray at
+// all. Hide only makes sense where a system tray exists to bring the
+// window back from, so it stays gated on desktop.App support, same as the
+// tray menu/icon setup above.
+func applyCloseBehavior(a fyne.App, w fyne.Window) {
+	if closeBehavior(a.Preferences()) == closeBehaviorQuit {
+		w.SetCloseIntercept(a.Quit)
+		return
+	}
+	if _, ok := a.(desktop.App); ok {
+		w.SetCloseIntercept(w.Hide)
+	}
 }
 
 // newTestApp is a seam for tests: fyne's test driver needs no display, so
