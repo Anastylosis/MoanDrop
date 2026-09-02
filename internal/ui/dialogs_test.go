@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -10,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/Anastylosis/MoanDrop/internal/core"
+	"github.com/Anastylosis/MoanSubs/client"
 )
 
 // dialogWindow returns a fresh window with a shown dialog attached to it —
@@ -164,5 +168,24 @@ func TestPromptDownvoteReason_Cancel(t *testing.T) {
 	tapButtonOn(t, win, "Cancel")
 	if called {
 		t.Error("onReason was called after Cancel, want no callback")
+	}
+}
+
+func TestShowError_RewordsRateLimit(t *testing.T) {
+	win := dialogWindow()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "30")
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	t.Cleanup(srv.Close)
+	_, err := client.New(srv.URL, "").Version(context.Background())
+	if err == nil {
+		t.Fatal("want a 429 error")
+	}
+
+	showError(win, err)
+	all := strings.Join(collectTexts(topOverlay(win)), "\n")
+	if !strings.Contains(all, "30s") {
+		t.Errorf("dialog text = %q, want the server's Retry-After wait", all)
 	}
 }

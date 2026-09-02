@@ -57,6 +57,9 @@ moandrop match --lang en --write "Some Scene (1080p).mp4"
 moandrop push "Some Scene (1080p).mp4" "Some Scene (1080p).en.srt"
 ```
 
+Rate limits are cooperative: a `429` from the server is reported as "try
+again in Ns", using the wait the server itself named in `Retry-After`.
+
 Exit codes: `0` success, `1` error, `2` no match — so a file-manager script
 can tell "nothing found" from "something broke".
 

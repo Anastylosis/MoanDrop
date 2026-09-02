@@ -61,7 +61,7 @@ func main() {
 	root.AddCommand(matchCmd(), pushCmd())
 
 	if err := root.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "moandrop:", err)
+		fmt.Fprintln(os.Stderr, "moandrop:", core.ExplainError(err))
 		os.Exit(1)
 	}
 }
