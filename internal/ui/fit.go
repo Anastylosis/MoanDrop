@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/widget"
@@ -19,24 +18,14 @@ func (u *appUI) offerFitPrompt(tr TrackRow) {
 	if tr.ForRelease == 0 {
 		return
 	}
-	if u.fitFeature == nil {
-		server := serverURL(u.app.Preferences())
-		gen := u.matchGen
-		go func() {
-			v, err := client.New(server, "").Version(context.Background())
-			supported := err == nil && slices.Contains(v.Features, "fit")
-			fyne.Do(func() {
-				u.fitFeature = &supported
-				if gen == u.matchGen {
-					u.offerFitPrompt(tr)
-				}
-			})
-		}()
-		return
-	}
-	if !*u.fitFeature {
-		return
-	}
+	u.withFeature("fit", func(supported bool) {
+		if supported {
+			u.showFitPrompt(tr)
+		}
+	})
+}
+
+func (u *appUI) showFitPrompt(tr TrackRow) {
 	u.fitPrompt.RemoveAll()
 	u.fitPrompt.Add(widget.NewLabel("Did the subtitle fit?"))
 	u.fitPrompt.Add(widget.NewButton("fits", func() { u.onFitReport(tr, true) }))
