@@ -89,9 +89,11 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   else by resolution/runtime/codec, with a studio/performer byline when
   the database knows them. Each release shows the same evidence wording as `match`
   (byte-identical, a verified/estimated/unknown-sync sibling cut, and so
-  on), and every track lists its language. A generated track carries an
-  "AI" badge; click it for the same explainer the CLI prints under a
-  result list. Human-made tracks sort first.
+  on), and every track lists its language and, when its uploader chose to
+  be credited, "by <name>". A generated track carries an "AI" badge — or
+  "AI (declared)" when the only evidence is the uploader's own say-so;
+  click either for the same explainer the CLI prints under a result list.
+  Human-made tracks sort first.
 - **Download**: click a track to write its sidecar beside the video. An
   existing sidecar is never replaced silently — a confirmation dialog asks
   first, same as `--overwrite` gates it on the CLI.
@@ -150,9 +152,13 @@ otherwise open behind it; the release builds do (release.yml's
   says the sync is unverified, believe it.
 - **sync confirmed by users** — enough people reported this exact pairing
   plays in sync as served; a separate signal from a measured shift.
-- **AI** — machine-transcribed, unreviewed. Human-made tracks always sort
-  first. AI tracks are usually accurate but may mishear names and slang;
-  most of the database is AI-transcribed, so expect the badge often.
+- **AI** — machine-transcribed, unreviewed: detected from the file's own
+  tool marker. Human-made tracks always sort first. AI tracks are usually
+  accurate but may mishear names and slang; most of the database is
+  AI-transcribed, so expect the badge often.
+- **AI (declared)** — the uploader said it was AI-made and nothing
+  confirms it, unlike a detected one. Worth noting, weaker evidence.
+- **by <name>** — the uploader made this subtitle and chose to be credited.
 
 ## Shell integration
 

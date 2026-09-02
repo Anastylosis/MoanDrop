@@ -184,6 +184,30 @@ func TestSortAndSelectTracks(t *testing.T) {
 	}
 }
 
+// TestRankCandidates_SiblingCarriesGeneratedSource guards the synthesized
+// one-track release a sibling becomes: dropping generated_source there
+// would turn every declared-AI sibling into a "detected" badge.
+func TestRankCandidates_SiblingCarriesGeneratedSource(t *testing.T) {
+	local := Fingerprint{DurationMs: 600_000}
+	oh, err := hash.ParseOSHash("00000000000000aa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	local.OSHash = oh
+	releases := []client.Release{{
+		ID: 1, OSHash: "00000000000000aa", DurationMs: 600_000,
+		Siblings: []client.Sibling{{ID: 7, ReleaseID: 2, Lang: "en", Generated: true, GeneratedSource: GeneratedSourceDeclared}},
+	}}
+	cands := RankCandidates(releases, local, false)
+	if len(cands) != 2 {
+		t.Fatalf("got %d candidates, want the exact match plus its sibling", len(cands))
+	}
+	tr := cands[1].Release.Tracks[0]
+	if got := GeneratedLabel(tr.Generated, tr.GeneratedSource); got != LabelDeclaredGenerated {
+		t.Errorf("sibling track label = %q, want %q", got, LabelDeclaredGenerated)
+	}
+}
+
 func TestEvidenceParts_SyncConfirmedByUsers(t *testing.T) {
 	c := Candidate{SiblingOf: 4, SiblingSyncVerified: true}
 	parts := EvidenceParts(c)

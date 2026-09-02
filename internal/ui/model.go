@@ -13,8 +13,9 @@ import (
 type TrackRow struct {
 	Track      client.TrackSummary
 	ForRelease int64
-	Badge      string // core.LabelGenerated, or "" for a human-made track
+	Badge      string // core.LabelGenerated/LabelDeclaredGenerated, or "" for a human-made track
 	Tooltip    string // core.GeneratedExplainer when Badge is set
+	Credit     string // core.CreditLine of the track's public credit, "" when none
 }
 
 // CandidateRow is one release offered to the user; its evidence wording is
@@ -84,9 +85,9 @@ func BuildCandidateRows(candidates []core.Candidate) []CandidateRow {
 		}
 		forRelease := core.ForRelease(c)
 		for _, t := range c.Release.Tracks {
-			tr := TrackRow{Track: t, ForRelease: forRelease}
+			tr := TrackRow{Track: t, ForRelease: forRelease, Credit: core.CreditLine(t.CreditedTo)}
 			if t.Generated {
-				tr.Badge = core.LabelGenerated
+				tr.Badge = core.GeneratedLabel(t.Generated, t.GeneratedSource)
 				tr.Tooltip = core.GeneratedExplainer
 			}
 			row.Tracks = append(row.Tracks, tr)

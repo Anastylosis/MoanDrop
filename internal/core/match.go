@@ -138,7 +138,7 @@ func siblingCandidates(r client.Release, deltaMs int64) []Candidate {
 		// render it with the machinery it already has.
 		rel := r
 		rel.Tracks = []client.TrackSummary{{
-			ID: sb.ID, Lang: sb.Lang, Generated: sb.Generated, Downloads: sb.Downloads,
+			ID: sb.ID, Lang: sb.Lang, Generated: sb.Generated, GeneratedSource: sb.GeneratedSource, Downloads: sb.Downloads,
 		}}
 		rel.Siblings = nil
 		c := Candidate{
