@@ -474,6 +474,7 @@ func TestShareSidecar_WithTokenPushesAndReportsLanguage(t *testing.T) {
 	u.refreshShareSection(video)
 
 	tapButtonOn(t, u.win, "Share")
+	waitDo(t, doneCh) // feature probe: the upload stub advertises nothing, so no options dialog
 	waitDo(t, doneCh) // ffmpeg resolution fails fast (no download), dispatches the push
 	waitDo(t, doneCh) // push completes, status updated
 
@@ -501,6 +502,7 @@ func TestShareSidecar_DuplicateReadsAsCalmOutcome(t *testing.T) {
 	u.refreshShareSection(video)
 
 	tapButtonOn(t, u.win, "Share")
+	waitDo(t, doneCh) // feature probe
 	waitDo(t, doneCh)
 	waitDo(t, doneCh)
 
@@ -537,6 +539,7 @@ func TestShareSidecar_NoTokenOpensTokenDialogThenPushes(t *testing.T) {
 	test.Type(entry, "fresh-token")
 	tapButtonOn(t, u.win, "Save")
 
+	waitDo(t, doneCh) // feature probe
 	waitDo(t, doneCh) // ffmpeg resolution
 	waitDo(t, doneCh) // push completes
 
@@ -571,6 +574,7 @@ func TestHandlePickedSubtitle_InfersLanguageAndPushes(t *testing.T) {
 	// file dialog, so the picker's callback is driven directly (see
 	// handlePickedSubtitle's doc comment).
 	u.handlePickedSubtitle(sub)
+	waitDo(t, doneCh) // feature probe
 	waitDo(t, doneCh)
 	waitDo(t, doneCh)
 
@@ -606,6 +610,7 @@ func TestHandlePickedSubtitle_UnknownLanguageAsksThenPushes(t *testing.T) {
 	test.Type(entry, "de")
 	tapButtonOn(t, u.win, "Share")
 
+	waitDo(t, doneCh) // feature probe
 	waitDo(t, doneCh)
 	waitDo(t, doneCh)
 
@@ -659,6 +664,112 @@ func findEntry(o fyne.CanvasObject) *widget.Entry {
 			return
 		}
 		if e, ok := c.(*widget.Entry); ok {
+			found = e
+		}
+	})
+	return found
+}
+
+// authorshipUploadServer is uploadServer plus a GET /api/v1/version that
+// advertises the authorship feature — the node shape that earns the
+// share-options dialog.
+func authorshipUploadServer(t *testing.T, result client.UploadResult) (*httptest.Server, *client.UploadRequest) {
+	t.Helper()
+	var got client.UploadRequest
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"version": "test", "features": []string{"lookup", "authorship"}})
+	})
+	mux.HandleFunc("POST /api/v1/subtitles", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(result)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv, &got
+}
+
+func TestShareSidecar_AuthorshipNodeAsksThenSendsChoice(t *testing.T) {
+	noFFmpegEnv(t)
+	u, doneCh := newFlowApp(t)
+	video, _ := videoWithSidecar(t, "scene.mp4", "scene.en.srt")
+
+	srv, gotReq := authorshipUploadServer(t, client.UploadResult{TrackID: 8, ReleaseID: 9, Generated: true, GeneratedSource: core.GeneratedSourceDeclared})
+	setServerURL(u.app.Preferences(), srv.URL)
+	setToken(u.app.Preferences(), "tok")
+
+	u.videoPath = video
+	u.refreshShareSection(video)
+
+	tapButtonOn(t, u.win, "Share")
+	waitDo(t, doneCh) // feature probe: authorship advertised, dialog opens
+
+	ov := topOverlay(u.win)
+	if ov == nil {
+		t.Fatal("an authorship-capable node must open the share-options dialog")
+	}
+	group := findRadioGroup(ov)
+	if group == nil {
+		t.Fatal("share-options dialog has no authorship choice")
+	}
+	if group.Selected != core.AuthorshipDescriptions[core.AuthorshipShared] {
+		t.Errorf("default authorship = %q, want shared preselected", group.Selected)
+	}
+	group.SetSelected(core.AuthorshipDescriptions[core.AuthorshipCredited])
+	check := findCheck(ov)
+	if check == nil {
+		t.Fatal("share-options dialog has no AI-generated declaration checkbox")
+	}
+	check.SetChecked(true)
+	tapButtonOn(t, u.win, shareOptionsConfirm)
+
+	waitDo(t, doneCh) // ffmpeg resolution
+	waitDo(t, doneCh) // push completes
+
+	if gotReq.Authorship != core.AuthorshipCredited || !gotReq.Generated {
+		t.Errorf("server saw authorship=%q generated=%v, want credited/true", gotReq.Authorship, gotReq.Generated)
+	}
+	if u.status.Text != "uploaded as track 8 (release 9), labelled AI-generated as you declared" {
+		t.Errorf("status = %q, want the declared wording", u.status.Text)
+	}
+	if authorship(u.app.Preferences()) != core.AuthorshipCredited {
+		t.Error("the authorship choice must be remembered for the next share")
+	}
+}
+
+func TestShareSidecar_OptionsCancelPushesNothing(t *testing.T) {
+	noFFmpegEnv(t)
+	u, doneCh := newFlowApp(t)
+	video, _ := videoWithSidecar(t, "scene.mp4", "scene.en.srt")
+
+	srv, gotReq := authorshipUploadServer(t, client.UploadResult{TrackID: 8, ReleaseID: 9})
+	setServerURL(u.app.Preferences(), srv.URL)
+	setToken(u.app.Preferences(), "tok")
+
+	u.videoPath = video
+	u.refreshShareSection(video)
+
+	tapButtonOn(t, u.win, "Share")
+	waitDo(t, doneCh) // feature probe
+	tapButtonOn(t, u.win, "Cancel")
+
+	if gotReq.Lang != "" {
+		t.Error("cancelling the options dialog must not upload anything")
+	}
+	if u.shareBusy {
+		t.Error("a cancelled share must not leave the share flow busy")
+	}
+}
+
+// findCheck finds the first *widget.Check reachable from o.
+func findCheck(o fyne.CanvasObject) *widget.Check {
+	var found *widget.Check
+	walkCanvas(o, func(c fyne.CanvasObject) {
+		if found != nil {
+			return
+		}
+		if e, ok := c.(*widget.Check); ok {
 			found = e
 		}
 	})

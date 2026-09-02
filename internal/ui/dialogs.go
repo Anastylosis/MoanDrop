@@ -69,6 +69,56 @@ func showError(win fyne.Window, err error) {
 	dialog.ShowError(core.ExplainError(err), win)
 }
 
+// shareOptionsConfirm is the share-options dialog's confirm button — not
+// "Share", which the sidecar rows behind the dialog already use.
+const shareOptionsConfirm = "Share now"
+
+// askShareOptions asks what the uploader wants to say about the subtitle
+// beyond its language: authorship (the server's closed vocabulary, worded
+// by core.AuthorshipDescriptions) and the voluntary AI-generated
+// declaration. defaultAuthorship preselects the remembered choice. onShare
+// is never called on cancel.
+func askShareOptions(win fyne.Window, subtitlePath, lang, defaultAuthorship string, onShare func(opts core.PushOptions)) {
+	labels := make([]string, 0, len(core.AuthorshipOrder))
+	for _, a := range core.AuthorshipOrder {
+		labels = append(labels, core.AuthorshipDescriptions[a])
+	}
+	group := widget.NewRadioGroup(labels, nil)
+	group.Required = true
+	group.SetSelected(core.AuthorshipDescriptions[defaultAuthorship])
+
+	generated := widget.NewCheck(core.GeneratedDeclarationLabel, nil)
+
+	content := container.NewVBox(
+		widget.NewLabelWithStyle("Who made it?", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		group,
+		generated,
+	)
+	d := dialog.NewCustomConfirm(
+		fmt.Sprintf("Share %s (%s)", filepath.Base(subtitlePath), lang),
+		shareOptionsConfirm, "Cancel", content, func(ok bool) {
+			if !ok {
+				return
+			}
+			onShare(core.PushOptions{
+				Authorship: authorshipFromLabel(group.Selected),
+				Generated:  generated.Checked,
+			})
+		}, win)
+	d.Show()
+}
+
+// authorshipFromLabel maps a radio label back to its vocabulary value;
+// anything unexpected (there is nothing else in the group) reads as shared.
+func authorshipFromLabel(label string) string {
+	for _, a := range core.AuthorshipOrder {
+		if core.AuthorshipDescriptions[a] == label {
+			return a
+		}
+	}
+	return core.AuthorshipShared
+}
+
 // downvoteReasonText is the one-sentence explainer shown alongside the
 // entry: the server requires a reason on a down-vote (client.Vote's doc
 // comment) so down-votes stay accountable rather than anonymous.

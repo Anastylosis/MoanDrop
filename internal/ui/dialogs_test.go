@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -168,6 +169,50 @@ func TestPromptDownvoteReason_Cancel(t *testing.T) {
 	tapButtonOn(t, win, "Cancel")
 	if called {
 		t.Error("onReason was called after Cancel, want no callback")
+	}
+}
+
+func TestAskShareOptions_DefaultsToRememberedAuthorshipAndNoDeclaration(t *testing.T) {
+	win := dialogWindow()
+	var got *core.PushOptions
+	askShareOptions(win, "/videos/scene.en.srt", "en", core.AuthorshipUncredited, func(opts core.PushOptions) { got = &opts })
+
+	ov := topOverlay(win)
+	if all := strings.Join(collectTexts(ov), "\n"); !strings.Contains(all, "scene.en.srt") {
+		t.Errorf("dialog text = %q, want the file name", all)
+	}
+	// Radio options and a check's text are widget state, not labels, so the
+	// text walker can't see them — read the widgets themselves.
+	group := findRadioGroup(ov)
+	if group == nil {
+		t.Fatal("dialog has no authorship choice")
+	}
+	for _, a := range core.AuthorshipOrder {
+		if !slices.Contains(group.Options, core.AuthorshipDescriptions[a]) {
+			t.Errorf("dialog never offers %q", a)
+		}
+	}
+	if check := findCheck(ov); check == nil || check.Text != core.GeneratedDeclarationLabel {
+		t.Errorf("declaration checkbox = %v, want %q", check, core.GeneratedDeclarationLabel)
+	}
+
+	tapButtonOn(t, win, shareOptionsConfirm)
+	if got == nil {
+		t.Fatal("onShare was not called after confirming")
+	}
+	if got.Authorship != core.AuthorshipUncredited || got.Generated {
+		t.Errorf("opts = %+v, want the remembered authorship and no declaration", *got)
+	}
+}
+
+func TestAskShareOptions_Cancel(t *testing.T) {
+	win := dialogWindow()
+	called := false
+	askShareOptions(win, "/videos/scene.en.srt", "en", core.AuthorshipShared, func(core.PushOptions) { called = true })
+
+	tapButtonOn(t, win, "Cancel")
+	if called {
+		t.Error("onShare was called after Cancel, want no callback")
 	}
 }
 

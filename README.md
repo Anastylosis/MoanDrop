@@ -55,7 +55,21 @@ moandrop match --lang en --write "Some Scene (1080p).mp4"
 # Share a subtitle you already have (needs a token — create an account
 # on the server, then export MOANDROP_TOKEN or pass --token)
 moandrop push "Some Scene (1080p).mp4" "Some Scene (1080p).en.srt"
+
+# Your own work: say so, and it's credited to your account name
+moandrop push --authorship credited "Some Scene.mp4" "Some Scene.en.srt"
 ```
+
+`push --authorship` takes `shared` (a file you're passing along, no
+claim — what the server assumes when the flag is absent), `credited` (you
+made it; your account name shows as "by <name>" wherever the track
+appears) or `uncredited` (you made it, visible to moderators only; never
+shown publicly, not even on your own uploader page). `--generated`
+declares the subtitle AI-generated: it adds the "AI (declared)" label and
+can never be withdrawn — the server only ever lets a declaration add the
+label, never remove one detection already set, so nobody can declare
+their way to "human-made". Both need a node that advertises the
+`authorship` feature (moansubs 0.6.0+); an older node ignores them.
 
 Rate limits are cooperative: a `429` from the server is reported as "try
 again in Ns", using the wait the server itself named in `Retry-After`.
@@ -115,9 +129,16 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   Sharing needs an account token, the same as voting does — Settings saves
   one in Preferences; absent that, `MOANDROP_TOKEN` works too, so a CLI
   user's env just works in the window (the preference wins when both are
-  set). A push that matches a subtitle already on the node reports that
-  calmly ("already on the node") rather than as an error — the server
-  never stores identical bytes twice.
+  set). On a node that records authorship (moansubs 0.6.0+), a small
+  dialog asks who made the subtitle — shared (the default; a file you're
+  passing along), credited (yours, shown as "by <name>"), or uncredited
+  (yours, moderators only) — and offers the voluntary AI-generated
+  declaration; the authorship answer is remembered as the next share's
+  default, the declaration is per file. Same meanings as `push
+  --authorship` and `--generated` above; an older node skips the question.
+  A push that matches a subtitle already on the node reports that calmly
+  ("already on the node") rather than as an error — the server never
+  stores identical bytes twice.
 - **Did it fit?**: after downloading a subtitle authored for another cut,
   the window asks whether it lined up. The verdict (never a timing value)
   is reported with your token; enough independent "fits" mark the pairing
