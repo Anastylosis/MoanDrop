@@ -63,8 +63,10 @@ func confirmOverwrite(win fyne.Window, path string, onConfirm func()) {
 	d.Show()
 }
 
+// showError routes every error through core.ExplainError, so a 429 reads
+// as "try again in Ns" here exactly as it does on the CLI.
 func showError(win fyne.Window, err error) {
-	dialog.ShowError(err, win)
+	dialog.ShowError(core.ExplainError(err), win)
 }
 
 // downvoteReasonText is the one-sentence explainer shown alongside the
