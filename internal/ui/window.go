@@ -39,10 +39,12 @@ type appUI struct {
 	downloadBusy bool
 	fitPrompt    *fyne.Container
 	fitBusy      bool
-	// fitFeature caches the once-per-run "fit" feature probe; nil = not
-	// yet probed. Like every field above: UI goroutine only.
-	fitFeature *bool
-	shareBusy  bool
+	// features caches the once-per-run GET /api/v1/version feature probe
+	// (see withFeature); featuresProbed distinguishes "not yet asked" from
+	// "asked, and the node advertises nothing". UI goroutine only.
+	features       []string
+	featuresProbed bool
+	shareBusy      bool
 
 	// votes remembers this session's own cast votes by trackID (1 or -1) —
 	// only enough to decide whether a row shows the +1/-1 buttons or the
