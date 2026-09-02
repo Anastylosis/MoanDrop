@@ -212,11 +212,24 @@ func (u *appUI) shareSidecar(subPath, lang string) {
 	}
 	if token(u.app.Preferences()) == "" {
 		u.promptToken(func() {
-			u.pushSidecar(subPath, lang)
+			u.shareSidecar(subPath, lang)
 		})
 		return
 	}
-	u.pushSidecar(subPath, lang)
+	// The authorship/declaration ask only makes sense on a node that
+	// records the answer; an older one gets the plain push it always did
+	// rather than a question whose answer would be silently dropped.
+	u.withFeature("authorship", func(supported bool) {
+		if !supported {
+			u.pushSidecar(subPath, lang, core.PushOptions{})
+			return
+		}
+		p := u.app.Preferences()
+		askShareOptions(u.win, subPath, lang, authorship(p), func(opts core.PushOptions) {
+			setAuthorship(p, opts.Authorship)
+			u.pushSidecar(subPath, lang, opts)
+		})
+	})
 }
 
 // pushSidecar runs core.PushSidecar off the UI goroutine. shareBusy
@@ -224,7 +237,7 @@ func (u *appUI) shareSidecar(subPath, lang string) {
 // captured up front so a push begun against one video can't paint its
 // result over the window after the user has moved on to another (the same
 // matchGen discipline runMatch uses).
-func (u *appUI) pushSidecar(subPath, lang string) {
+func (u *appUI) pushSidecar(subPath, lang string, opts core.PushOptions) {
 	if u.shareBusy {
 		return
 	}
@@ -252,7 +265,7 @@ func (u *appUI) pushSidecar(subPath, lang string) {
 		}
 		go func() {
 			c := client.New(server, tok)
-			res, err := core.PushSidecar(context.Background(), c, videoPath, lang, body, ffmpeg, ffprobe)
+			res, err := core.PushSidecar(context.Background(), c, videoPath, lang, body, ffmpeg, ffprobe, opts)
 			fyne.Do(func() {
 				u.shareBusy = false
 				if gen != u.matchGen {

@@ -59,7 +59,7 @@ func TestRunPush_UploadedWording(t *testing.T) {
 	t.Cleanup(func() { flagServer, flagToken = "", "" })
 
 	out := captureStdout(t, func() {
-		if err := runPush(context.Background(), video, sub, "", true); err != nil {
+		if err := runPush(context.Background(), video, sub, "", true, core.PushOptions{}); err != nil {
 			t.Fatalf("runPush: %v", err)
 		}
 	})
@@ -85,7 +85,7 @@ func TestRunPush_DuplicateWording(t *testing.T) {
 	t.Cleanup(func() { flagServer, flagToken = "", "" })
 
 	out := captureStdout(t, func() {
-		if err := runPush(context.Background(), video, sub, "", true); err != nil {
+		if err := runPush(context.Background(), video, sub, "", true, core.PushOptions{}); err != nil {
 			t.Fatalf("runPush: %v", err)
 		}
 	})
@@ -110,7 +110,7 @@ func TestRunPush_UnresolvableLangErrorsBeforeUpload(t *testing.T) {
 	flagServer, flagToken = srv.URL, "tok"
 	t.Cleanup(func() { flagServer, flagToken = "", "" })
 
-	if err := runPush(context.Background(), video, sub, "", true); err == nil {
+	if err := runPush(context.Background(), video, sub, "", true, core.PushOptions{}); err == nil {
 		t.Fatal("want an error when the language can't be inferred and --lang wasn't passed")
 	}
 	if hit {
@@ -134,11 +134,65 @@ func TestRunPush_OversizeFailsBeforeFFmpegResolution(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("MOANDROP_NO_DOWNLOAD", "1")
 
-	err := runPush(context.Background(), video, sub, "en", false)
+	err := runPush(context.Background(), video, sub, "en", false, core.PushOptions{})
 	if err == nil {
 		t.Fatal("want the size-cap error")
 	}
 	if !strings.Contains(err.Error(), "byte cap") {
 		t.Fatalf("err = %v, want the size-cap error, not an ffmpeg one", err)
+	}
+}
+
+func TestRunPush_AuthorshipAndDeclarationReachTheServer(t *testing.T) {
+	var got client.UploadRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(client.UploadResult{TrackID: 3, ReleaseID: 4, Generated: true, GeneratedSource: core.GeneratedSourceDeclared})
+	}))
+	t.Cleanup(srv.Close)
+
+	dir := t.TempDir()
+	video := filepath.Join(dir, "scene.mp4")
+	sub := filepath.Join(dir, "scene.en.srt")
+	_ = os.WriteFile(video, bytes.Repeat([]byte{0xAA}, 4096), 0o644)
+	_ = os.WriteFile(sub, []byte("body"), 0o644)
+
+	flagServer, flagToken = srv.URL, "tok"
+	t.Cleanup(func() { flagServer, flagToken = "", "" })
+
+	out := captureStdout(t, func() {
+		if err := runPush(context.Background(), video, sub, "", true, core.PushOptions{Authorship: core.AuthorshipUncredited, Generated: true}); err != nil {
+			t.Fatalf("runPush: %v", err)
+		}
+	})
+	if got.Authorship != core.AuthorshipUncredited || !got.Generated {
+		t.Errorf("server saw authorship=%q generated=%v, want uncredited/true", got.Authorship, got.Generated)
+	}
+	if want := "uploaded as track 3 (release 4), labelled AI-generated as you declared\n"; out != want {
+		t.Errorf("stdout = %q, want %q", out, want)
+	}
+}
+
+func TestRunPush_BadAuthorshipFailsBeforeAnythingElse(t *testing.T) {
+	hit := false
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { hit = true }))
+	t.Cleanup(srv.Close)
+
+	dir := t.TempDir()
+	video := filepath.Join(dir, "scene.mp4")
+	sub := filepath.Join(dir, "scene.srt") // not even a resolvable language
+	_ = os.WriteFile(video, bytes.Repeat([]byte{0xAA}, 4096), 0o644)
+	_ = os.WriteFile(sub, []byte("body"), 0o644)
+
+	flagServer, flagToken = srv.URL, "tok"
+	t.Cleanup(func() { flagServer, flagToken = "", "" })
+
+	err := runPush(context.Background(), video, sub, "", true, core.PushOptions{Authorship: "author"})
+	if err == nil || !strings.Contains(err.Error(), "authorship") {
+		t.Fatalf("err = %v, want the authorship vocabulary error, ahead of the language one", err)
+	}
+	if hit {
+		t.Error("a bad authorship value must fail before ever reaching the network")
 	}
 }

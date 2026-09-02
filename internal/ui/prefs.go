@@ -17,6 +17,7 @@ const (
 	prefAgeAccepted   = "age-gate-accepted"
 	prefToken         = "account-token"
 	prefCloseBehavior = "close-behavior"
+	prefAuthorship    = "share-authorship"
 )
 
 // closeBehaviorHide/closeBehaviorQuit are the two SetCloseIntercept
@@ -74,4 +75,20 @@ func token(p fyne.Preferences) string {
 
 func setToken(p fyne.Preferences, tok string) {
 	p.SetString(prefToken, tok)
+}
+
+// authorship is the share dialog's remembered authorship choice — someone
+// who shares their own work shares it repeatedly, so the last answer is
+// the best default. Anything unrecognized (or nothing saved yet) falls
+// back to the server's own default, shared.
+func authorship(p fyne.Preferences) string {
+	v := p.String(prefAuthorship)
+	if core.ValidateAuthorship(v) != nil || v == "" {
+		return core.AuthorshipShared
+	}
+	return v
+}
+
+func setAuthorship(p fyne.Preferences, v string) {
+	p.SetString(prefAuthorship, v)
 }

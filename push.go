@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -14,8 +15,10 @@ import (
 
 func pushCmd() *cobra.Command {
 	var (
-		lang    string
-		noPhash bool
+		lang       string
+		noPhash    bool
+		authorship string
+		generated  bool
 	)
 	cmd := &cobra.Command{
 		Use:   "push <video> <subtitle>",
@@ -26,15 +29,29 @@ everyone else with the same video can find it. Needs an account token
 (--token or MOANDROP_TOKEN); create an account on the server to get one.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPush(cmd.Context(), args[0], args[1], lang, noPhash)
+			return runPush(cmd.Context(), args[0], args[1], lang, noPhash, core.PushOptions{Authorship: authorship, Generated: generated})
 		},
 	}
 	cmd.Flags().StringVar(&lang, "lang", "", "subtitle language (default: read from a <stem>.<lang>.srt filename)")
 	cmd.Flags().BoolVar(&noPhash, "no-phash", false, "skip ffmpeg; upload with the exact file hash only")
+	cmd.Flags().StringVar(&authorship, "authorship", "", "who made it: "+strings.Join(authorshipHelp(), "; ")+" (default: say nothing — the server assumes shared)")
+	cmd.Flags().BoolVar(&generated, "generated", false, "declare "+core.GeneratedDeclarationLabel)
 	return cmd
 }
 
-func runPush(ctx context.Context, videoPath, subPath, lang string, noPhash bool) error {
+func authorshipHelp() []string {
+	out := make([]string, 0, len(core.AuthorshipOrder))
+	for _, a := range core.AuthorshipOrder {
+		out = append(out, core.AuthorshipDescriptions[a])
+	}
+	return out
+}
+
+func runPush(ctx context.Context, videoPath, subPath, lang string, noPhash bool, opts core.PushOptions) error {
+	// Before anything slow: a typo here must not cost a fingerprint.
+	if err := core.ValidateAuthorship(opts.Authorship); err != nil {
+		return err
+	}
 	if lang == "" {
 		lang = core.InferSidecarLang(subPath)
 		if lang == "" {
@@ -57,7 +74,7 @@ func runPush(ctx context.Context, videoPath, subPath, lang string, noPhash bool)
 	}
 	fmt.Fprintln(os.Stderr, core.FingerprintingMessage)
 
-	res, err := core.PushSidecar(ctx, client.New(flagServer, flagToken), videoPath, lang, body, ffmpeg, ffprobe)
+	res, err := core.PushSidecar(ctx, client.New(flagServer, flagToken), videoPath, lang, body, ffmpeg, ffprobe, opts)
 	if err != nil {
 		return err
 	}

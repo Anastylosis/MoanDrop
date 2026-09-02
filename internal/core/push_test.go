@@ -46,7 +46,7 @@ func TestPushSidecar_SendsFingerprintAndBody(t *testing.T) {
 	sub := writeSub(t, dir, "scene.en.srt", "1\n00:00:01,000 --> 00:00:02,000\nhi\n")
 	c := client.New(srv.URL, "tok")
 
-	res, err := PushSidecar(context.Background(), c, video, "en", mustReadSubtitle(t, sub), "", "")
+	res, err := PushSidecar(context.Background(), c, video, "en", mustReadSubtitle(t, sub), "", "", PushOptions{})
 	if err != nil {
 		t.Fatalf("PushSidecar: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestPushSidecar_EmptyLangRejectedBeforeNetworkCall(t *testing.T) {
 	sub := writeSub(t, dir, "scene.srt", "body")
 	c := client.New(srv.URL, "tok")
 
-	if _, err := PushSidecar(context.Background(), c, video, "", mustReadSubtitle(t, sub), "", ""); err == nil {
+	if _, err := PushSidecar(context.Background(), c, video, "", mustReadSubtitle(t, sub), "", "", PushOptions{}); err == nil {
 		t.Fatal("want error for an empty language")
 	}
 	if hit {
@@ -100,7 +100,7 @@ func TestPushSidecar_NoTokenSurfacesClientError(t *testing.T) {
 	sub := writeSub(t, dir, "scene.en.srt", "body")
 	c := client.New("http://127.0.0.1:0", "") // no token, never actually dialed
 
-	if _, err := PushSidecar(context.Background(), c, video, "en", mustReadSubtitle(t, sub), "", ""); err == nil {
+	if _, err := PushSidecar(context.Background(), c, video, "en", mustReadSubtitle(t, sub), "", "", PushOptions{}); err == nil {
 		t.Fatal("want the client's own no-token error")
 	}
 }
@@ -112,6 +112,10 @@ func TestPushResult_Message(t *testing.T) {
 	}{
 		{PushResult{TrackID: 1, ReleaseID: 2}, "uploaded as track 1 (release 2)"},
 		{PushResult{TrackID: 1, ReleaseID: 2, Generated: true}, "uploaded as track 1 (release 2), detected as AI-generated"},
+		{PushResult{TrackID: 1, ReleaseID: 2, Generated: true, GeneratedSource: GeneratedSourceProvenance}, "uploaded as track 1 (release 2), detected as AI-generated"},
+		{PushResult{TrackID: 1, ReleaseID: 2, Generated: true, GeneratedSource: GeneratedSourceDeclared}, "uploaded as track 1 (release 2), labelled AI-generated as you declared"},
+		// A duplicate stays a duplicate whatever the server says about generation.
+		{PushResult{TrackID: 1, ReleaseID: 2, Generated: true, GeneratedSource: GeneratedSourceDeclared, Duplicate: true}, "already on the node: track 1 (release 2) — nothing new to share"},
 		{PushResult{TrackID: 1, ReleaseID: 2, Duplicate: true}, "already on the node: track 1 (release 2) — nothing new to share"},
 	}
 	for _, c := range cases {
@@ -128,4 +132,92 @@ func mustReadSubtitle(t *testing.T, path string) []byte {
 		t.Fatal(err)
 	}
 	return body
+}
+
+func TestPushSidecar_SendsAuthorshipAndDeclaration(t *testing.T) {
+	srv, gotReq := uploadServer(t, client.UploadResult{TrackID: 5, ReleaseID: 9, Generated: true, GeneratedSource: GeneratedSourceDeclared})
+	dir := t.TempDir()
+	video := filepath.Join(dir, "scene.mp4")
+	if err := os.WriteFile(video, []byte("video bytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sub := writeSub(t, dir, "scene.en.srt", "body")
+	c := client.New(srv.URL, "tok")
+
+	res, err := PushSidecar(context.Background(), c, video, "en", mustReadSubtitle(t, sub), "", "", PushOptions{Authorship: AuthorshipCredited, Generated: true})
+	if err != nil {
+		t.Fatalf("PushSidecar: %v", err)
+	}
+	if gotReq.Authorship != AuthorshipCredited || !gotReq.Generated {
+		t.Fatalf("server saw authorship=%q generated=%v, want credited/true", gotReq.Authorship, gotReq.Generated)
+	}
+	if res.GeneratedSource != GeneratedSourceDeclared {
+		t.Errorf("GeneratedSource = %q, want the server's declared answer carried through", res.GeneratedSource)
+	}
+}
+
+// TestPushSidecar_ZeroOptionsSendNoFields freezes the compatibility rule:
+// a server predating the authorship feature must see the request it always
+// did — no authorship key, no generated key.
+func TestPushSidecar_ZeroOptionsSendNoFields(t *testing.T) {
+	var raw map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&raw)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(client.UploadResult{TrackID: 1, ReleaseID: 2})
+	}))
+	t.Cleanup(srv.Close)
+	dir := t.TempDir()
+	video := filepath.Join(dir, "scene.mp4")
+	if err := os.WriteFile(video, []byte("video bytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sub := writeSub(t, dir, "scene.en.srt", "body")
+
+	if _, err := PushSidecar(context.Background(), client.New(srv.URL, "tok"), video, "en", mustReadSubtitle(t, sub), "", "", PushOptions{}); err != nil {
+		t.Fatalf("PushSidecar: %v", err)
+	}
+	for _, key := range []string{"authorship", "generated"} {
+		if _, present := raw[key]; present {
+			t.Errorf("request carried %q with zero options; an older server must see no such field", key)
+		}
+	}
+}
+
+func TestPushSidecar_BadAuthorshipRejectedBeforeNetworkCall(t *testing.T) {
+	hit := false
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { hit = true }))
+	t.Cleanup(srv.Close)
+	dir := t.TempDir()
+	video := filepath.Join(dir, "scene.mp4")
+	if err := os.WriteFile(video, []byte("video bytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sub := writeSub(t, dir, "scene.en.srt", "body")
+
+	_, err := PushSidecar(context.Background(), client.New(srv.URL, "tok"), video, "en", mustReadSubtitle(t, sub), "", "", PushOptions{Authorship: "mine"})
+	if err == nil || !strings.Contains(err.Error(), "authorship") {
+		t.Fatalf("err = %v, want the authorship vocabulary error", err)
+	}
+	if hit {
+		t.Error("a bad authorship value must fail before reaching the network")
+	}
+}
+
+func TestValidateAuthorship(t *testing.T) {
+	for _, ok := range append([]string{""}, AuthorshipOrder...) {
+		if err := ValidateAuthorship(ok); err != nil {
+			t.Errorf("ValidateAuthorship(%q) = %v, want nil", ok, err)
+		}
+	}
+	for _, bad := range []string{"Shared", "mine", "credited "} {
+		if err := ValidateAuthorship(bad); err == nil {
+			t.Errorf("ValidateAuthorship(%q) = nil, want an error", bad)
+		}
+	}
+	for _, a := range AuthorshipOrder {
+		if AuthorshipDescriptions[a] == "" {
+			t.Errorf("no description for %q", a)
+		}
+	}
 }
