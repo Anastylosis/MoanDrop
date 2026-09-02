@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	fyne.io/fyne/v2 v2.8.1
-	github.com/Anastylosis/MoanSubs v0.5.1
+	github.com/Anastylosis/MoanSubs v0.6.0
 	github.com/Anastylosis/mediahash v0.1.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/text v0.30.0
