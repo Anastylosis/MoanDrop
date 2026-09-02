@@ -203,3 +203,28 @@ func TestPromptSettings_ReopenReflectsSavedQuit(t *testing.T) {
 		t.Errorf("radio selection = %q, want %q after saving quit", rg.Selected, closeBehaviorQuitLabel)
 	}
 }
+
+func TestRenderCandidates_DeclaredBadgeAndCreditReachTheRow(t *testing.T) {
+	u := newTestApp(test.NewApp())
+	u.renderCandidates([]CandidateRow{{
+		Release:    client.Release{ID: 1},
+		Confidence: core.ConfidenceExact,
+		Tracks: []TrackRow{
+			{Track: client.TrackSummary{ID: 1, Lang: "en"}, Credit: "by somebody"},
+			{Track: client.TrackSummary{ID: 2, Lang: "de", Generated: true}, Badge: core.LabelDeclaredGenerated, Tooltip: core.GeneratedExplainer},
+		},
+	}})
+	all := strings.Join(collectTexts(u.win.Content()), "\n")
+	if !strings.Contains(all, "by somebody") {
+		t.Error("a credited track's credit never reaches the row")
+	}
+	if findButton(u.win.Content(), core.LabelDeclaredGenerated) == nil {
+		t.Error("a declared-AI track must carry the declared badge, not the detected one")
+	}
+	if findButton(u.win.Content(), core.LabelGenerated) != nil {
+		t.Error("no detected-AI track was rendered, yet its badge appears")
+	}
+	if !strings.Contains(all, core.GeneratedExplainer) {
+		t.Error("a declared-AI track must still bring the explainer")
+	}
+}

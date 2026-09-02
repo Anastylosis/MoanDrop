@@ -309,7 +309,11 @@ func (u *appUI) trackRowWidget(tr TrackRow) fyne.CanvasObject {
 	if k := tr.Track.Kind; k != "" && k != "default" {
 		kind = "  " + k
 	}
-	info := widget.NewLabel(fmt.Sprintf("%s  %s%s", tr.Track.Lang, made, kind))
+	credit := ""
+	if tr.Credit != "" {
+		credit = "  " + tr.Credit
+	}
+	info := widget.NewLabel(fmt.Sprintf("%s  %s%s%s", tr.Track.Lang, made, kind, credit))
 	downloads := widget.NewLabel(fmt.Sprintf("%d downloads", tr.Track.Downloads))
 	// counts is a handle a cast vote's response (or a post-retract
 	// VoteCounts) updates in place, so voting never needs a full

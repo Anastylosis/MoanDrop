@@ -158,3 +158,31 @@ func TestReleaseByline(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildCandidateRows_DeclaredBadgeAndCredit(t *testing.T) {
+	local := core.Fingerprint{DurationMs: 600_000}
+	oh, err := hash.ParseOSHash("00000000000000aa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	local.OSHash = oh
+	releases := []client.Release{{
+		ID: 1, OSHash: "00000000000000aa", DurationMs: 600_000,
+		Tracks: []client.TrackSummary{
+			{ID: 10, Lang: "en", CreditedTo: "somebody"},
+			{ID: 11, Lang: "de", Generated: true, GeneratedSource: core.GeneratedSourceDeclared},
+			{ID: 12, Lang: "fr", Generated: true, GeneratedSource: core.GeneratedSourceProvenance},
+		},
+	}}
+	rows := BuildCandidateRows(core.RankCandidates(releases, local, false))
+	tracks := rows[0].Tracks
+	if tracks[0].Credit != "by somebody" || tracks[0].Badge != "" {
+		t.Errorf("credited human track = %+v", tracks[0])
+	}
+	if tracks[1].Badge != core.LabelDeclaredGenerated || tracks[1].Tooltip != core.GeneratedExplainer {
+		t.Errorf("declared track = %+v, want the declared badge with the explainer", tracks[1])
+	}
+	if tracks[2].Badge != core.LabelGenerated {
+		t.Errorf("detected track badge = %q, want %q", tracks[2].Badge, core.LabelGenerated)
+	}
+}
