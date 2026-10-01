@@ -20,6 +20,7 @@ func pushCmd() *cobra.Command {
 		noPhash    bool
 		authorship string
 		generated  bool
+		revises    int64
 	)
 	cmd := &cobra.Command{
 		Use:   "push <video> <subtitle>",
@@ -30,13 +31,14 @@ everyone else with the same video can find it. Needs an account token
 (--token or MOANDROP_TOKEN); create an account at <server>/register and\ncopy the token from <server>/me.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPush(cmd.Context(), args[0], args[1], lang, noPhash, core.PushOptions{Authorship: authorship, Generated: generated})
+			return runPush(cmd.Context(), args[0], args[1], lang, noPhash, core.PushOptions{Authorship: authorship, Generated: generated, Supersedes: revises})
 		},
 	}
 	cmd.Flags().StringVar(&lang, "lang", "", "subtitle language (default: read from a <stem>.<lang>.srt filename)")
 	cmd.Flags().BoolVar(&noPhash, "no-phash", false, "skip ffmpeg; upload with the exact file hash only")
 	cmd.Flags().StringVar(&authorship, "authorship", "", "who made it: "+strings.Join(authorshipHelp(), "; ")+" (default: say nothing — the server assumes shared)")
 	cmd.Flags().BoolVar(&generated, "generated", false, "declare "+core.GeneratedDeclarationLabel)
+	cmd.Flags().Int64Var(&revises, "revises", 0, "upload as a corrected version of this track id (must be the latest version, same video and language)")
 	return cmd
 }
 
@@ -53,6 +55,9 @@ func runPush(ctx context.Context, videoPath, subPath, lang string, noPhash bool,
 	if err := core.ValidateAuthorship(opts.Authorship); err != nil {
 		return err
 	}
+	if opts.Supersedes < 0 {
+		return fmt.Errorf("--revises %d: want a track id", opts.Supersedes)
+	}
 	if lang == "" {
 		lang = core.InferSidecarLang(subPath)
 		if lang == "" {
@@ -68,6 +73,16 @@ func runPush(ctx context.Context, videoPath, subPath, lang string, noPhash bool,
 
 	if flagToken == "" {
 		return errors.New(core.NoTokenMessage(flagServer))
+	}
+
+	if opts.Supersedes != 0 {
+		ok, err := core.HasFeature(ctx, client.New(flagServer, ""), core.FeatureRevisions)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errors.New(core.RevisionsUnsupportedMessage)
+		}
 	}
 
 	var ffmpeg, ffprobe string

@@ -211,3 +211,77 @@ func TestRunPush_NoTokenNamesAccountPage(t *testing.T) {
 		t.Fatalf("err = %v, want it to name https://node.example/me", err)
 	}
 }
+
+func revisionNode(t *testing.T, features []string, result client.UploadResult, status int) (*httptest.Server, *client.UploadRequest) {
+	t.Helper()
+	var got client.UploadRequest
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"version": "test", "features": features})
+	})
+	mux.HandleFunc("POST /api/v1/subtitles", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(result)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv, &got
+}
+
+func revisionFiles(t *testing.T) (video, sub string) {
+	t.Helper()
+	dir := t.TempDir()
+	video = filepath.Join(dir, "scene.mp4")
+	sub = filepath.Join(dir, "scene.en.srt")
+	_ = os.WriteFile(video, bytes.Repeat([]byte{0xAA}, 4096), 0o644)
+	_ = os.WriteFile(sub, []byte("body"), 0o644)
+	return video, sub
+}
+
+func TestRunPush_RevisesAccepted(t *testing.T) {
+	srv, got := revisionNode(t, []string{"revisions"}, client.UploadResult{TrackID: 9, ReleaseID: 4, Revision: 3, Supersedes: 5}, http.StatusCreated)
+	flagServer, flagToken = srv.URL, "tok"
+	t.Cleanup(func() { flagServer, flagToken = "", "" })
+	video, sub := revisionFiles(t)
+
+	out := captureStdout(t, func() {
+		if err := runPush(context.Background(), video, sub, "", true, core.PushOptions{Supersedes: 5}); err != nil {
+			t.Fatalf("runPush: %v", err)
+		}
+	})
+	if got.Supersedes != 5 {
+		t.Errorf("server saw supersedes=%d", got.Supersedes)
+	}
+	if want := "uploaded as track 9 (release 4) — revision 3 of track 5\n"; out != want {
+		t.Errorf("stdout = %q, want %q", out, want)
+	}
+}
+
+func TestRunPush_RevisesOnOldNodeFailsBeforeUpload(t *testing.T) {
+	srv, got := revisionNode(t, []string{"lookup"}, client.UploadResult{}, http.StatusCreated)
+	flagServer, flagToken = srv.URL, "tok"
+	t.Cleanup(func() { flagServer, flagToken = "", "" })
+	video, sub := revisionFiles(t)
+
+	err := runPush(context.Background(), video, sub, "", true, core.PushOptions{Supersedes: 5})
+	if err == nil || err.Error() != core.RevisionsUnsupportedMessage {
+		t.Fatalf("err = %v, want the unsupported message", err)
+	}
+	if got.Lang != "" {
+		t.Error("an old node must not receive the upload")
+	}
+}
+
+func TestRunPush_RevisesConflictReadsInPlainWords(t *testing.T) {
+	srv, _ := revisionNode(t, []string{"revisions"}, client.UploadResult{}, http.StatusConflict)
+	flagServer, flagToken = srv.URL, "tok"
+	t.Cleanup(func() { flagServer, flagToken = "", "" })
+	video, sub := revisionFiles(t)
+
+	err := runPush(context.Background(), video, sub, "", true, core.PushOptions{Supersedes: 5})
+	if err == nil || !strings.Contains(core.ExplainError(err).Error(), "no longer the latest version") {
+		t.Fatalf("err = %v", err)
+	}
+}

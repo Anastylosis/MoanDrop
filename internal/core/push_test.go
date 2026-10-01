@@ -221,3 +221,43 @@ func TestValidateAuthorship(t *testing.T) {
 		}
 	}
 }
+
+func TestPushSidecar_SupersedesSentAndReported(t *testing.T) {
+	srv, gotReq := uploadServer(t, client.UploadResult{TrackID: 9, ReleaseID: 4, Revision: 2, Supersedes: 5, RootID: 5})
+	dir := t.TempDir()
+	video := filepath.Join(dir, "scene.mp4")
+	if err := os.WriteFile(video, []byte("video bytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sub := writeSub(t, dir, "scene.en.srt", "body")
+
+	res, err := PushSidecar(context.Background(), client.New(srv.URL, "tok"), video, "en", mustReadSubtitle(t, sub), "", "", PushOptions{Supersedes: 5})
+	if err != nil {
+		t.Fatalf("PushSidecar: %v", err)
+	}
+	if gotReq.Supersedes != 5 {
+		t.Errorf("server saw supersedes=%d, want 5", gotReq.Supersedes)
+	}
+	if got, want := res.Message(), "uploaded as track 9 (release 4) — revision 2 of track 5"; got != want {
+		t.Errorf("Message = %q, want %q", got, want)
+	}
+}
+
+func TestPushResult_DeclinedRevisionMessages(t *testing.T) {
+	retime := PushResult{TrackID: 9, ReleaseID: 4, Supersedes: 5, RevisionDeclined: RevisionDeclinedRetime, RevisionHint: "use the offset feature"}
+	if got := retime.Message(); !strings.Contains(got, "only the timing changed") || !strings.Contains(got, "(use the offset feature)") || !strings.HasPrefix(got, "uploaded as track 9") {
+		t.Errorf("retime message = %q", got)
+	}
+	diff := PushResult{TrackID: 9, ReleaseID: 4, Supersedes: 5, RevisionDeclined: RevisionDeclinedTooDifferent}
+	if got := diff.Message(); !strings.Contains(got, "differs too much") {
+		t.Errorf("too_different message = %q", got)
+	}
+}
+
+func TestRevisionLabel(t *testing.T) {
+	for rev, want := range map[int]string{0: "", 1: "", 2: "rev 2"} {
+		if got := RevisionLabel(rev); got != want {
+			t.Errorf("RevisionLabel(%d) = %q, want %q", rev, got, want)
+		}
+	}
+}

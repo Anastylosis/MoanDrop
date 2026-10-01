@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Anastylosis/MoanSubs/client"
@@ -54,6 +55,9 @@ type PushOptions struct {
 	Authorship string
 	// Generated is the voluntary AI-generated declaration.
 	Generated bool
+	// Supersedes is the track id this upload revises (feature "revisions");
+	// zero for an ordinary upload.
+	Supersedes int64
 }
 
 // PushResult mirrors the server's upload outcome, worded once here so the
@@ -69,10 +73,44 @@ type PushResult struct {
 	// not an error, and not new sharing (the server never duplicates
 	// identical bytes).
 	Duplicate bool
+	// Revision is set when the server accepted the upload as a revision of
+	// Supersedes; RevisionDeclined ("retime" or "too_different") means it
+	// was stored as an ordinary new track instead.
+	Revision         int64
+	Supersedes       int64
+	RevisionDeclined string
+	RevisionHint     string
 }
 
 // Message is the one-line outcome both surfaces print/show verbatim.
 func (r PushResult) Message() string {
+	msg := r.uploadMessage()
+	switch {
+	case r.Revision > 0:
+		return fmt.Sprintf("%s — revision %d of track %d", msg, r.Revision, r.Supersedes)
+	case r.RevisionDeclined != "":
+		return msg + " — " + r.declinedMessage()
+	}
+	return msg
+}
+
+func (r PushResult) declinedMessage() string {
+	var why string
+	switch r.RevisionDeclined {
+	case RevisionDeclinedRetime:
+		why = fmt.Sprintf("not a revision of track %d: only the timing changed, and a retimed copy is kept as its own track", r.Supersedes)
+	case RevisionDeclinedTooDifferent:
+		why = fmt.Sprintf("not a revision of track %d: the text differs too much from it, so it is kept as its own track", r.Supersedes)
+	default:
+		why = fmt.Sprintf("not accepted as a revision of track %d (%s), kept as its own track", r.Supersedes, r.RevisionDeclined)
+	}
+	if r.RevisionHint != "" {
+		why += " (" + r.RevisionHint + ")"
+	}
+	return why
+}
+
+func (r PushResult) uploadMessage() string {
 	switch {
 	case r.Duplicate:
 		return fmt.Sprintf("already on the node: track %d (release %d) — nothing new to share", r.TrackID, r.ReleaseID)
@@ -114,6 +152,9 @@ func PushSidecar(ctx context.Context, c *client.Client, videoPath, lang string, 
 	if err := ValidateAuthorship(opts.Authorship); err != nil {
 		return PushResult{}, err
 	}
+	if opts.Supersedes < 0 {
+		return PushResult{}, fmt.Errorf("invalid track id %d to revise", opts.Supersedes)
+	}
 
 	fp, err := FingerprintFile(ctx, ffmpegPath, ffprobePath, videoPath)
 	if err != nil {
@@ -130,6 +171,7 @@ func PushSidecar(ctx context.Context, c *client.Client, videoPath, lang string, 
 		Stem:       strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath)),
 		Authorship: opts.Authorship,
 		Generated:  opts.Generated,
+		Supersedes: opts.Supersedes,
 	}
 	if fp.PHash != nil {
 		req.PHash = fp.PHash.String()
@@ -143,5 +185,16 @@ func PushSidecar(ctx context.Context, c *client.Client, videoPath, lang string, 
 		TrackID: res.TrackID, ReleaseID: res.ReleaseID,
 		Generated: res.Generated, GeneratedSource: res.GeneratedSource,
 		Duplicate: res.Duplicate,
+		Revision:  res.Revision, Supersedes: opts.Supersedes,
+		RevisionDeclined: res.RevisionDeclined, RevisionHint: res.RevisionHint,
 	}, nil
+}
+
+// HasFeature probes GET /api/v1/version for name.
+func HasFeature(ctx context.Context, c *client.Client, name string) (bool, error) {
+	v, err := c.Version(ctx)
+	if err != nil {
+		return false, err
+	}
+	return slices.Contains(v.Features, name), nil
 }

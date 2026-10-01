@@ -86,3 +86,26 @@ func AccountURL(server string) string { return strings.TrimRight(server, "/") + 
 func NoTokenMessage(server string) string {
 	return fmt.Sprintf("no account token — get yours at %s (create an account at %s first), then pass --token or set MOANDROP_TOKEN", AccountURL(server), RegisterURL(server))
 }
+
+// FeatureRevisions is the GET /api/v1/version feature that advertises
+// supersede-style uploads; RevisionsUnsupportedMessage is what both
+// surfaces say on a node without it.
+const (
+	FeatureRevisions            = "revisions"
+	RevisionsUnsupportedMessage = "this node does not support revising a track yet — share it as a new track instead"
+)
+
+// The server's revision_declined vocabulary.
+const (
+	RevisionDeclinedRetime       = "retime"
+	RevisionDeclinedTooDifferent = "too_different"
+)
+
+// RevisionLabel is the "rev N" tag a track row carries once it has been
+// revised; empty for a first version or a node predating revisions.
+func RevisionLabel(revision int) string {
+	if revision <= 1 {
+		return ""
+	}
+	return fmt.Sprintf("rev %d", revision)
+}

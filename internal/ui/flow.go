@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/Anastylosis/MoanDrop/internal/core"
@@ -217,17 +218,41 @@ func (u *appUI) shareSidecar(subPath, lang string) {
 		})
 		return
 	}
+	u.askAndPush(subPath, lang, 0)
+}
+
+// reviseTrack shares subPath as a corrected version of tr, after checking
+// the node supports revisions: an older one would ignore the field and
+// store an unrelated new track.
+func (u *appUI) reviseTrack(subPath string, tr TrackRow) {
+	if token(u.app.Preferences()) == "" {
+		u.promptToken(func() { u.reviseTrack(subPath, tr) })
+		return
+	}
+	u.withFeature(core.FeatureRevisions, func(supported bool) {
+		if !supported {
+			dialog.ShowInformation("Cannot revise", core.RevisionsUnsupportedMessage, u.win)
+			return
+		}
+		u.askAndPush(subPath, tr.Track.Lang, tr.Track.ID)
+	})
+}
+
+// askAndPush is the share flow past language and token: the authorship ask
+// where the node records it, then the push.
+func (u *appUI) askAndPush(subPath, lang string, supersedes int64) {
 	// The authorship/declaration ask only makes sense on a node that
 	// records the answer; an older one gets the plain push it always did
 	// rather than a question whose answer would be silently dropped.
 	u.withFeature("authorship", func(supported bool) {
 		if !supported {
-			u.pushSidecar(subPath, lang, core.PushOptions{})
+			u.pushSidecar(subPath, lang, core.PushOptions{Supersedes: supersedes})
 			return
 		}
 		p := u.app.Preferences()
 		askShareOptions(u.win, subPath, lang, authorship(p), func(opts core.PushOptions) {
 			setAuthorship(p, opts.Authorship)
+			opts.Supersedes = supersedes
 			u.pushSidecar(subPath, lang, opts)
 		})
 	})

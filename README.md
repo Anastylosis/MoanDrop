@@ -134,6 +134,14 @@ label, never remove one detection already set, so nobody can declare
 their way to "human-made". Both need a node that advertises the
 `authorship` feature (moansubs 0.6.0+); an older node ignores them.
 
+`push --revises <track-id>` uploads the subtitle as a corrected version of
+that track instead of a new one: it must be the track's latest version, for
+the same video and language. The node declines a copy whose only change is
+timing, or whose text differs too much, and stores it as a separate track
+(the output says which). Revised tracks show as `rev N` in `match` output.
+A node without the `revisions` feature (moansubs 0.6.3+) is refused before
+anything is fingerprinted.
+
 `match` also takes a folder or several paths. Every video inside is
 fingerprinted (`--jobs N` at a time, default 2) and looked up in chunks of
 16 — one request, at most 96 of the node's 300-per-minute lookup tokens, since
@@ -222,7 +230,10 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   --authorship` and `--generated` above; an older node skips the question.
   A push that matches a subtitle already on the node reports that calmly
   ("already on the node") rather than as an error — the server never
-  stores identical bytes twice.
+  stores identical bytes twice. With a token set, each track row also has
+  **Share a corrected version…**: pick a subtitle file and it is pushed as
+  a revision of that track (same questions as above; needs a node with the
+  `revisions` feature), and revised tracks are tagged `rev N`.
 - **Did it fit?**: after downloading a subtitle authored for another cut,
   the window asks whether it lined up. The verdict (never a timing value)
   is reported with your token; enough independent "fits" mark the pairing

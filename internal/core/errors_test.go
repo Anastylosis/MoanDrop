@@ -56,3 +56,23 @@ func TestExplainError_PassesOtherErrorsThrough(t *testing.T) {
 		t.Errorf("ExplainError(nil) = %v", got)
 	}
 }
+
+func TestExplainError_SupersedeRefusals(t *testing.T) {
+	for status, want := range map[int]string{
+		http.StatusNotFound: "no longer exists",
+		http.StatusConflict: "no longer the latest version",
+		http.StatusLocked:   "locked",
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(status)
+		}))
+		_, err := client.New(srv.URL, "tok").Upload(context.Background(), client.UploadRequest{OSHash: "00", Lang: "en", Body: "x", Supersedes: 5})
+		srv.Close()
+		if err == nil {
+			t.Fatalf("HTTP %d produced no error", status)
+		}
+		if got := ExplainError(err).Error(); !strings.Contains(got, want) {
+			t.Errorf("HTTP %d: %q, want it to contain %q", status, got, want)
+		}
+	}
+}

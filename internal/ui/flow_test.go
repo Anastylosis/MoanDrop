@@ -775,3 +775,92 @@ func findCheck(o fyne.CanvasObject) *widget.Check {
 	})
 	return found
 }
+
+func revisionsServer(t *testing.T, features []string, result client.UploadResult) (*httptest.Server, *client.UploadRequest) {
+	t.Helper()
+	var got client.UploadRequest
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"version": "test", "features": features})
+	})
+	mux.HandleFunc("POST /api/v1/subtitles", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(result)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv, &got
+}
+
+func TestTrackRow_ReviseButtonNeedsTokenAndRevShowsAfterOne(t *testing.T) {
+	u := newTestApp(test.NewApp())
+	rows := []CandidateRow{{
+		Release:    client.Release{ID: 1},
+		Confidence: core.ConfidenceExact,
+		Tracks:     []TrackRow{{Track: client.TrackSummary{ID: 1, Lang: "en", Revision: 3}}},
+	}}
+	u.renderCandidates(rows)
+	if findButton(u.win.Content(), reviseButtonText) != nil {
+		t.Error("revise button offered without a token")
+	}
+	if all := strings.Join(collectTexts(u.win.Content()), "\n"); !strings.Contains(all, "rev 3") {
+		t.Error("a revision 3 track must show rev 3")
+	}
+	setToken(u.app.Preferences(), "tok")
+	u.renderCandidates(rows)
+	if findButton(u.win.Content(), reviseButtonText) == nil {
+		t.Error("revise button missing with a token")
+	}
+	rows[0].Tracks[0].Track.Revision = 1
+	u.renderCandidates(rows)
+	if all := strings.Join(collectTexts(u.win.Content()), "\n"); strings.Contains(all, "rev ") {
+		t.Error("a first version must not show a rev tag")
+	}
+}
+
+func TestReviseTrack_SendsSupersedesInTracksLanguage(t *testing.T) {
+	noFFmpegEnv(t)
+	u, doneCh := newFlowApp(t)
+	video, sub := videoWithSidecar(t, "scene.mp4", "scene.srt")
+	srv, gotReq := revisionsServer(t, []string{"authorship", "revisions"}, client.UploadResult{TrackID: 8, ReleaseID: 9, Revision: 2, Supersedes: 5})
+	setServerURL(u.app.Preferences(), srv.URL)
+	setToken(u.app.Preferences(), "tok")
+	u.videoPath = video
+
+	u.reviseTrack(sub, TrackRow{Track: client.TrackSummary{ID: 5, Lang: "de"}})
+	waitDo(t, doneCh) // one probe answers both features; dialog opens
+	if topOverlay(u.win) == nil {
+		t.Fatal("share-options dialog did not open")
+	}
+	tapButtonOn(t, u.win, shareOptionsConfirm)
+	waitDo(t, doneCh) // ffmpeg resolution
+	waitDo(t, doneCh) // push completes
+
+	if gotReq.Supersedes != 5 || gotReq.Lang != "de" {
+		t.Errorf("server saw supersedes=%d lang=%q, want 5/de", gotReq.Supersedes, gotReq.Lang)
+	}
+	if want := "uploaded as track 8 (release 9) — revision 2 of track 5"; u.status.Text != want {
+		t.Errorf("status = %q, want %q", u.status.Text, want)
+	}
+}
+
+func TestReviseTrack_OldNodeSaysSoAndUploadsNothing(t *testing.T) {
+	u, doneCh := newFlowApp(t)
+	video, sub := videoWithSidecar(t, "scene.mp4", "scene.srt")
+	srv, gotReq := revisionsServer(t, []string{"lookup"}, client.UploadResult{})
+	setServerURL(u.app.Preferences(), srv.URL)
+	setToken(u.app.Preferences(), "tok")
+	u.videoPath = video
+
+	u.reviseTrack(sub, TrackRow{Track: client.TrackSummary{ID: 5, Lang: "de"}})
+	waitDo(t, doneCh)
+
+	all := strings.Join(collectTexts(topOverlay(u.win)), "\n")
+	if !strings.Contains(all, core.RevisionsUnsupportedMessage) {
+		t.Errorf("dialog texts = %q, want the unsupported message", all)
+	}
+	if gotReq.Lang != "" {
+		t.Error("an old node must not receive the upload")
+	}
+}

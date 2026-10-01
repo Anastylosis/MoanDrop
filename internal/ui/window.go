@@ -347,6 +347,9 @@ func (u *appUI) trackRowWidget(tr TrackRow) fyne.CanvasObject {
 	if tr.Credit != "" {
 		credit = "  " + tr.Credit
 	}
+	if rev := core.RevisionLabel(tr.Track.Revision); rev != "" {
+		kind += "  " + rev
+	}
 	info := widget.NewLabel(fmt.Sprintf("%s  %s%s%s", tr.Track.Lang, made, kind, credit))
 	downloads := widget.NewLabel(fmt.Sprintf("%d downloads", tr.Track.Downloads))
 	// counts is a handle a cast vote's response (or a post-retract
@@ -368,6 +371,11 @@ func (u *appUI) trackRowWidget(tr TrackRow) fyne.CanvasObject {
 		u.downloadTrack(tr)
 	})
 	items = append(items, dl)
+	if token(u.app.Preferences()) != "" {
+		items = append(items, widget.NewButtonWithIcon(reviseButtonText, theme.UploadIcon(), func() {
+			u.pickSubtitleToRevise(tr)
+		}))
+	}
 	return container.NewHBox(items...)
 }
 
@@ -468,6 +476,29 @@ func (u *appUI) pickSubtitleToShare() {
 		path := r.URI().Path()
 		_ = r.Close()
 		u.handlePickedSubtitle(path)
+	}, u.win)
+	fd.SetFilter(storage.NewExtensionFileFilter([]string{".srt", ".vtt"}))
+	fd.Show()
+}
+
+// reviseButtonText is the track row's corrected-version button.
+const reviseButtonText = "Share a corrected version…"
+
+// pickSubtitleToRevise is the track row's file picker; the new file is
+// shared as a revision of tr, in the track's own language (the server
+// requires them to match).
+func (u *appUI) pickSubtitleToRevise(tr TrackRow) {
+	fd := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
+		if err != nil {
+			showError(u.win, err)
+			return
+		}
+		if r == nil {
+			return
+		}
+		path := r.URI().Path()
+		_ = r.Close()
+		u.reviseTrack(path, tr)
 	}, u.win)
 	fd.SetFilter(storage.NewExtensionFileFilter([]string{".srt", ".vtt"}))
 	fd.Show()

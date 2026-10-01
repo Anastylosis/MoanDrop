@@ -199,6 +199,9 @@ func printCandidates(candidates []core.Candidate) {
 			if t.Kind != "" && t.Kind != "default" {
 				kind = " " + t.Kind
 			}
+			if rev := core.RevisionLabel(t.Revision); rev != "" {
+				kind += " " + rev
+			}
 			credit := ""
 			if line := core.CreditLine(t.CreditedTo); line != "" {
 				credit = "  " + line
