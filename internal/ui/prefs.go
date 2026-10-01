@@ -18,6 +18,7 @@ const (
 	prefToken         = "account-token"
 	prefCloseBehavior = "close-behavior"
 	prefAuthorship    = "share-authorship"
+	prefBatchLangs    = "batch-langs"
 )
 
 // closeBehaviorHide/closeBehaviorQuit are the two SetCloseIntercept
@@ -91,4 +92,13 @@ func authorship(p fyne.Preferences) string {
 
 func setAuthorship(p fyne.Preferences, v string) {
 	p.SetString(prefAuthorship, v)
+}
+
+// batchLangs is the folder dialog's remembered language list.
+func batchLangs(p fyne.Preferences) string {
+	return p.StringWithFallback(prefBatchLangs, "en")
+}
+
+func setBatchLangs(p fyne.Preferences, v string) {
+	p.SetString(prefBatchLangs, v)
 }

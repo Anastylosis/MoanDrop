@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -53,6 +54,9 @@ type appUI struct {
 	// vote calls the same way downloadBusy/shareBusy serialize theirs.
 	votes    map[int64]int
 	voteBusy bool
+
+	// batchCancel stops a running folder batch; UI goroutine only.
+	batchCancel context.CancelFunc
 }
 
 // build wires up the window's permanent chrome. Called once, after the age
@@ -67,6 +71,10 @@ func (u *appUI) build() {
 		paths := make([]string, len(uris))
 		for i, uri := range uris {
 			paths[i] = uri.Path()
+		}
+		if droppedFolder(paths) {
+			u.startFolder(paths)
+			return
 		}
 		if len(paths) == 1 {
 			u.startVideo(paths[0])
@@ -89,7 +97,7 @@ func (u *appUI) build() {
 	privacy.Wrapping = fyne.TextWrapWord
 
 	u.drop = widget.NewLabelWithStyle(
-		"Drop a video here, or use File > Open Video...",
+		"Drop a video or a folder here, or use File > Open Video...",
 		fyne.TextAlignCenter, fyne.TextStyle{})
 	u.drop.Wrapping = fyne.TextWrapWord
 	dropArea := widget.NewCard("", "", container.NewCenter(u.drop))

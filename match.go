@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -25,17 +26,33 @@ func matchCmd() *cobra.Command {
 		allLangs  bool
 		exact     bool
 		noPhash   bool
+		jobs      int
 	)
 	cmd := &cobra.Command{
-		Use:   "match <video>",
+		Use:   "match <video|folder>...",
 		Short: "Look a video up on the node and list (or write) matching subtitles",
 		Long: `Fingerprints the video (oshash, duration, perceptual hash — computed
 locally, the file itself is never uploaded), queries the server's bucketed
 lookup, and ranks candidates client-side, so the server never learns which
 candidate matched. With --write, the best track per requested language is
-downloaded and written beside the video as <stem>.<lang>.srt.`,
-		Args: cobra.ExactArgs(1),
+downloaded and written beside the video as <stem>.<lang>.srt.
+
+Given a folder (or several paths), every video inside is matched in one
+run: folders are searched recursively, videos that already have a sidecar
+for --lang are skipped (unless --overwrite), and one line per video plus a
+summary are printed. With --write only confident matches are written;
+ambiguous ones are reported and left alone. Exit codes for a batch: 0 if
+at least one video was written, matched or already had its subtitle and
+nothing failed, 1 if any video failed (or the run was interrupted or
+rate-limited), 2 if no video could be resolved.`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if isBatchArgs(args) {
+				return runBatch(cmd.Context(), args, langs, write, overwrite, allLangs, exact, noPhash, jobs)
+			}
+			if len(args) != 1 {
+				return fmt.Errorf("expected one video")
+			}
 			return runMatch(cmd.Context(), args[0], langs, write, overwrite, allLangs, exact, noPhash)
 		},
 	}
@@ -45,7 +62,71 @@ downloaded and written beside the video as <stem>.<lang>.srt.`,
 	cmd.Flags().BoolVar(&allLangs, "all-languages", false, "with --write: write every language the match has")
 	cmd.Flags().BoolVar(&exact, "exact", false, "send full fingerprints for a wider fuzzy search (trades the private bucketed lookup for more reach)")
 	cmd.Flags().BoolVar(&noPhash, "no-phash", false, "skip ffmpeg entirely; byte-identical (oshash) matches only")
+	cmd.Flags().IntVar(&jobs, "jobs", 2, "folders: how many videos to fingerprint at once")
 	return cmd
+}
+
+func isBatchArgs(args []string) bool {
+	if len(args) > 1 {
+		return true
+	}
+	info, err := os.Stat(args[0])
+	return err == nil && info.IsDir()
+}
+
+func runBatch(ctx context.Context, args, langs []string, write, overwrite, allLangs, exact, noPhash bool, jobs int) error {
+	if exact {
+		return fmt.Errorf("--exact works on a single file, not a folder")
+	}
+	if write && len(langs) == 0 && !allLangs {
+		return fmt.Errorf("--write needs --lang (e.g. --lang en) or --all-languages")
+	}
+	if jobs < 1 {
+		return fmt.Errorf("--jobs must be at least 1")
+	}
+	videos, err := core.CollectVideos(args)
+	if err != nil {
+		return err
+	}
+	if len(videos) == 0 {
+		return fmt.Errorf("no video files found")
+	}
+
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
+	defer stop()
+
+	var ffmpeg, ffprobe string
+	if !noPhash {
+		ffmpeg, ffprobe, err = core.EnsureFFmpeg(ctx, flagFFmpeg, flagFFprobe)
+		if err != nil {
+			return fmt.Errorf("%w (or pass --no-phash for exact-file matches only)", err)
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "%d videos; %s\n", len(videos), core.FingerprintingMessage)
+	sum := core.RunBatch(ctx, client.New(flagServer, flagToken), videos, core.BatchOptions{
+		Langs: langs, AllLangs: allLangs, Write: write, Overwrite: overwrite,
+		Jobs: jobs, FFmpeg: ffmpeg, FFprobe: ffprobe,
+		OnResult: func(r core.BatchResult) {
+			if !flagJSON {
+				fmt.Println(r.Line())
+			}
+		},
+	})
+
+	if flagJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(sum.Results); err != nil {
+			return err
+		}
+	} else {
+		fmt.Println(sum.Line(write))
+	}
+	if code := sum.ExitCode(); code != 0 {
+		os.Exit(code)
+	}
+	return nil
 }
 
 func runMatch(ctx context.Context, videoPath string, langs []string, write, overwrite, allLangs, exact, noPhash bool) error {

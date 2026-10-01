@@ -20,6 +20,7 @@ func (u *appUI) startVideo(path string, extraSubs ...string) {
 	if path == "" {
 		return
 	}
+	u.cancelBatch()
 	u.videoPath = path
 	u.matchGen++
 	gen := u.matchGen

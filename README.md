@@ -65,7 +65,7 @@ will warn on first launch: click **More info → Run anyway**. For a right-click
    `<stem>.<lang>.srt`, which your player picks up on its own.
 
 Prefer a terminal? `moandrop match --lang en --write "Some Scene.mp4"` does
-the same.
+the same, and `moandrop match --lang en --write ~/Videos` does a whole folder.
 
 ### First run
 
@@ -109,6 +109,10 @@ moandrop match "Some Scene (1080p).mp4"
 # Write the best English subtitle beside the video
 moandrop match --lang en --write "Some Scene (1080p).mp4"
 
+# A whole folder (searched recursively); skips videos that already have an
+# English sidecar, writes only confident matches
+moandrop match --lang en --write ~/Videos
+
 # Share a subtitle you already have (needs a token — create an account
 # on the server, then export MOANDROP_TOKEN or pass --token)
 moandrop push "Some Scene (1080p).mp4" "Some Scene (1080p).en.srt"
@@ -128,11 +132,26 @@ label, never remove one detection already set, so nobody can declare
 their way to "human-made". Both need a node that advertises the
 `authorship` feature (moansubs 0.6.0+); an older node ignores them.
 
+`match` also takes a folder or several paths. Every video inside is
+fingerprinted (`--jobs N` at a time, default 2) and looked up in chunks of
+16 — one request, at most 96 of the node's 300-per-minute lookup tokens, since
+each bucket entry costs one. One line per video and a summary follow
+(written / already had / ambiguous / no match / errors). Videos that
+already have a sidecar for `--lang` are skipped without fingerprinting;
+`--overwrite` includes them. With `--write` only a confident match is
+written: a single exact or high-confidence release. Offers, and ties
+between equally good releases, are reported as *ambiguous* and left for
+you to pick with `match` on that file. Ctrl-C stops cleanly, and `--json`
+prints one object per video. `--exact` is single-file only.
+
 Rate limits are cooperative: a `429` from the server is reported as "try
 again in Ns", using the wait the server itself named in `Retry-After`.
 
 Exit codes: `0` success, `1` error, `2` no match — so a file-manager script
-can tell "nothing found" from "something broke".
+can tell "nothing found" from "something broke". For a folder: `1` if any
+video failed (or the run was interrupted or rate-limited), else `2` if not a
+single video was written, matched or already had its subtitle, else `0` —
+a few unmatched videos in an otherwise good folder are not a failure.
 
 ## GUI (desktop window)
 
@@ -142,6 +161,12 @@ it preloaded with that file and start matching immediately (this is the
 form a file manager's "Open with" runs, `moandrop "%f"`).
 
 - **Find a video**: drag it onto the window, or use File → Open Video….
+- **Subtitle a folder**: drop a folder (or several) onto the window. It asks
+  which language(s) to write (remembered), then goes through every video
+  inside, listing one line per video as it resolves, with a Stop button and
+  a summary at the end. It follows the same rules as `match --write` on a
+  folder: videos that already have a subtitle are skipped, and only
+  confident matches are written.
 - **First run**: a one-time 18+ confirmation, matching the server's own
   age gate on every human-facing page. Declining exits the app; accepting
   is remembered.
