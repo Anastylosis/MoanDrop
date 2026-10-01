@@ -20,11 +20,68 @@ actually matched is decided on your side — the server can't tell.
 
 ## Install
 
-Grab a binary from the releases page, or:
+Pick the one for your system. Every channel installs the same `moandrop`
+binary (CLI and window in one); run it with no arguments to open the window.
 
-```sh
-go install github.com/Anastylosis/MoanDrop@latest
-```
+**Linux**
+
+- Arch: `yay -S moandrop` (or any AUR helper) — the
+  [`moandrop`](https://aur.archlinux.org/packages/moandrop) package.
+- Debian/Ubuntu: download `moandrop_<version>_amd64.deb` (or `arm64`) from the
+  [releases page](https://github.com/Anastylosis/MoanDrop/releases/latest),
+  then `sudo apt install ./moandrop_<version>_amd64.deb`.
+- Fedora/RHEL/openSUSE: download `moandrop-<version>-1.x86_64.rpm` (or
+  `aarch64`) from the releases page, then `sudo dnf install ./moandrop-*.rpm`.
+- Homebrew on Linux: `brew install anastylosis/tap/moandrop`.
+- Anything else: unpack `moandrop-v<version>-linux-amd64.tar.gz` (or `arm64`)
+  and put `moandrop` on your `PATH`. The window needs the system GL and X11/Wayland
+  libraries, which any desktop already has.
+
+The deb, rpm and AUR packages also install the desktop entry and icon.
+
+**macOS**
+
+- Homebrew: `brew install anastylosis/tap/moandrop`. Homebrew does not
+  quarantine formula downloads, so this route should open without a warning.
+- Or unpack `moandrop-v<version>-darwin-arm64.tar.gz` (Apple silicon) or
+  `-darwin-amd64.tar.gz` (Intel) from the releases page.
+
+The binary is unsigned, so a downloaded copy is blocked the first time. Either
+clear the quarantine flag once — `xattr -d com.apple.quarantine /path/to/moandrop`
+— or try to open it, then go to System Settings → Privacy & Security and click
+**Open Anyway**.
+
+**Windows**
+
+Download `moandrop-v<version>-windows-amd64.zip` from the releases page, unzip
+it anywhere and double-click `moandrop.exe`. It is unsigned, so SmartScreen
+will warn on first launch: click **More info → Run anyway**. For a right-click
+"Find subtitles" entry see Shell integration below.
+
+## Quick start
+
+1. Open MoanDrop and drag a video onto the window.
+2. Pick a subtitle from the candidate list. It is written beside the video as
+   `<stem>.<lang>.srt`, which your player picks up on its own.
+
+Prefer a terminal? `moandrop match --lang en --write "Some Scene.mp4"` does
+the same.
+
+### First run
+
+MoanDrop asks you to confirm you are 18 or older (moansubs.org indexes adult
+video); declining exits, and the answer is remembered. It queries
+`https://moansubs.org` by default. Finding and downloading subtitles needs no
+account.
+
+To share subtitles or vote you need a free account. Sign up in a browser at
+[moansubs.org/register](https://moansubs.org/register) — a name and a password,
+no email (the site sits behind a Cloudflare challenge, which is why this
+cannot happen inside the app). Your account page, `/me`, shows your API token.
+Paste it into **File → Settings… → Token** (or set `MOANDROP_TOKEN`, or pass
+`--token` on the CLI).
+
+## ffmpeg
 
 `match` and `push` use `ffmpeg`/`ffprobe` for the perceptual hash. You do
 not need to install anything: if neither binary is on your `PATH`,
@@ -153,15 +210,6 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   without it the hidden window is only reachable by running `moandrop`
   again, or by switching Settings' close behavior to quit outright.
 
-### Build notes
-
-The GUI needs CGO (Fyne's OpenGL/window-system bindings) and, on Linux,
-X11/Wayland/GL development headers at build time — the headless CLI has
-none of these requirements. On Windows, build with
-`-ldflags -H=windowsgui` to suppress the console window the GUI would
-otherwise open behind it; the release builds do (release.yml's
-`windows-gui: true`).
-
 ### What the results mean
 
 - **exact** — byte-identical file. The subtitle fits.
@@ -228,11 +276,27 @@ in `contrib/`.
 Best-effort, no installer: see `contrib/macos/README.md` for an
 Automator Quick Action that wraps the CLI.
 
-## Status
+## Building
 
-The headless CLI and the desktop window (see above) both wrap the same
-`internal/core` engine, so they cannot drift apart; ffmpeg auto-download
-and file-manager integration (`contrib/`) are in place for both.
+Only needed if no package above fits. Fyne's window needs cgo, so you need a
+C compiler and, on Linux, the GL/X11/Wayland headers; plain `go install`
+fails without them. On Debian/Ubuntu:
+
+```sh
+sudo apt install gcc libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev \
+  libxinerama-dev libxi-dev libxxf86vm-dev libxkbcommon-dev libwayland-dev \
+  wayland-protocols pkg-config
+go install github.com/Anastylosis/MoanDrop@latest
+```
+
+On Windows, build with `-ldflags -H=windowsgui` to suppress the console window
+behind the GUI (the release builds do). The headless CLI has none of these
+requirements. The GUI cannot be cross-compiled; build on the target OS.
+
+## Support
+
+Linux and Windows are the supported platforms; macOS builds ship but are
+best-effort. Issues and patches welcome on GitHub.
 
 ## Privacy & scope
 
