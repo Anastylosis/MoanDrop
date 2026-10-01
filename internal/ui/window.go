@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -206,6 +207,15 @@ func (u *appUI) promptSettings() {
 		tokenEntry.SetPlaceHolder("paste your account token")
 	}
 
+	accountButtons := container.NewHBox(
+		widget.NewButtonWithIcon("Create account", theme.AccountIcon(), func() {
+			u.openServerPage(core.RegisterURL, serverEntry.Text)
+		}),
+		widget.NewButtonWithIcon("My account / get token", theme.InfoIcon(), func() {
+			u.openServerPage(core.AccountURL, serverEntry.Text)
+		}),
+	)
+
 	closeGroup := widget.NewRadioGroup([]string{closeBehaviorHideLabel, closeBehaviorQuitLabel}, nil)
 	closeGroup.SetSelected(closeBehaviorLabel(closeBehavior(p)))
 
@@ -214,6 +224,7 @@ func (u *appUI) promptSettings() {
 		serverEntry,
 		widget.NewLabelWithStyle("Account token", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		tokenMsg,
+		accountButtons,
 		tokenEntry,
 		widget.NewLabelWithStyle("When the window is closed", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		closeGroup,
@@ -234,6 +245,21 @@ func (u *appUI) promptSettings() {
 		applyCloseBehavior(u.app, u.win)
 	}, u.win)
 	d.Show()
+}
+
+// openServerPage opens page(server) in the browser, using the server text
+// as typed in Settings (unsaved is fine) or the default when blank.
+func (u *appUI) openServerPage(page func(string) string, server string) {
+	if strings.TrimSpace(server) == "" {
+		server = core.DefaultServerURL
+	}
+	target, err := url.Parse(page(strings.TrimSpace(server)))
+	if err == nil {
+		err = u.app.OpenURL(target)
+	}
+	if err != nil {
+		showError(u.win, err)
+	}
 }
 
 // promptToken shows the account-token dialog; onSaved runs after a

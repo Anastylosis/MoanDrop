@@ -1,6 +1,9 @@
 package core
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestGeneratedLabel(t *testing.T) {
 	cases := []struct {
@@ -30,5 +33,19 @@ func TestCreditLine(t *testing.T) {
 	}
 	if got := CreditLine("somebody"); got != "by somebody" {
 		t.Errorf("CreditLine = %q, want the release page's own wording", got)
+	}
+}
+
+func TestAccountURLs(t *testing.T) {
+	for _, server := range []string{"https://x.example", "https://x.example/"} {
+		if got := RegisterURL(server); got != "https://x.example/register" {
+			t.Errorf("RegisterURL(%q) = %q", server, got)
+		}
+		if got := AccountURL(server); got != "https://x.example/me" {
+			t.Errorf("AccountURL(%q) = %q", server, got)
+		}
+	}
+	if msg := NoTokenMessage("https://x.example"); !strings.Contains(msg, "https://x.example/me") {
+		t.Errorf("NoTokenMessage = %q", msg)
 	}
 }

@@ -196,3 +196,18 @@ func TestRunPush_BadAuthorshipFailsBeforeAnythingElse(t *testing.T) {
 		t.Error("a bad authorship value must fail before ever reaching the network")
 	}
 }
+
+func TestRunPush_NoTokenNamesAccountPage(t *testing.T) {
+	flagServer, flagToken = "https://node.example/", ""
+	t.Cleanup(func() { flagServer, flagToken = "", "" })
+
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "v.en.srt")
+	if err := os.WriteFile(sub, []byte("1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := runPush(context.Background(), filepath.Join(dir, "v.mp4"), sub, "", true, core.PushOptions{})
+	if err == nil || !strings.Contains(err.Error(), "https://node.example/me") {
+		t.Fatalf("err = %v, want it to name https://node.example/me", err)
+	}
+}

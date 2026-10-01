@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,7 +27,7 @@ func pushCmd() *cobra.Command {
 		Long: `Fingerprints the video locally (the video itself is never uploaded — only
 its hashes and the subtitle file), then pushes the subtitle to the server so
 everyone else with the same video can find it. Needs an account token
-(--token or MOANDROP_TOKEN); create an account on the server to get one.`,
+(--token or MOANDROP_TOKEN); create an account at <server>/register and\ncopy the token from <server>/me.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runPush(cmd.Context(), args[0], args[1], lang, noPhash, core.PushOptions{Authorship: authorship, Generated: generated})
@@ -63,6 +64,10 @@ func runPush(ctx context.Context, videoPath, subPath, lang string, noPhash bool,
 	body, err := core.ReadSubtitle(subPath)
 	if err != nil {
 		return err
+	}
+
+	if flagToken == "" {
+		return errors.New(core.NoTokenMessage(flagServer))
 	}
 
 	var ffmpeg, ffprobe string

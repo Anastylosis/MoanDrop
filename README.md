@@ -79,7 +79,9 @@ To share subtitles or vote you need a free account. Sign up in a browser at
 no email (the site sits behind a Cloudflare challenge, which is why this
 cannot happen inside the app). Your account page, `/me`, shows your API token.
 Paste it into **File → Settings… → Token** (or set `MOANDROP_TOKEN`, or pass
-`--token` on the CLI).
+`--token` on the CLI). Settings has **Create account** and **My account / get
+token** buttons that open those two pages on your configured server; `push`
+without a token tells you the same address.
 
 ## ffmpeg
 

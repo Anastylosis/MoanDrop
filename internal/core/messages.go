@@ -1,5 +1,10 @@
 package core
 
+import (
+	"fmt"
+	"strings"
+)
+
 // User-facing strings shared by the CLI and the GUI window, so the two
 // surfaces cannot drift onto different wording for the same event.
 
@@ -67,4 +72,17 @@ func CreditLine(creditedTo string) string {
 		return ""
 	}
 	return "by " + creditedTo
+}
+
+// RegisterURL and AccountURL are the node's sign-up page and the account
+// page that shows the API token; sign-up happens in a browser (the site
+// sits behind a challenge), never inside the app.
+func RegisterURL(server string) string { return strings.TrimRight(server, "/") + "/register" }
+
+// AccountURL is where a signed-in user finds their token.
+func AccountURL(server string) string { return strings.TrimRight(server, "/") + "/me" }
+
+// NoTokenMessage is the push error when no account token is configured.
+func NoTokenMessage(server string) string {
+	return fmt.Sprintf("no account token — get yours at %s (create an account at %s first), then pass --token or set MOANDROP_TOKEN", AccountURL(server), RegisterURL(server))
 }

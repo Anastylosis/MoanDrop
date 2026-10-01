@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -226,5 +228,37 @@ func TestRenderCandidates_DeclaredBadgeAndCreditReachTheRow(t *testing.T) {
 	}
 	if !strings.Contains(all, core.GeneratedExplainer) {
 		t.Error("a declared-AI track must still bring the explainer")
+	}
+}
+
+type urlRecordingApp struct {
+	fyne.App
+	opened []string
+}
+
+func (a *urlRecordingApp) OpenURL(u *url.URL) error {
+	a.opened = append(a.opened, u.String())
+	return nil
+}
+
+func TestPromptSettings_AccountButtonsOpenServerPages(t *testing.T) {
+	rec := &urlRecordingApp{App: test.NewApp()}
+	u := newTestApp(rec)
+	u.promptSettings()
+
+	entries := []*widget.Entry{}
+	walkCanvas(topOverlay(u.win), func(c fyne.CanvasObject) {
+		if e, ok := c.(*widget.Entry); ok {
+			entries = append(entries, e)
+		}
+	})
+	entries[0].SetText("https://node.example/")
+
+	tapButtonOn(t, u.win, "Create account")
+	tapButtonOn(t, u.win, "My account / get token")
+
+	want := []string{"https://node.example/register", "https://node.example/me"}
+	if !reflect.DeepEqual(rec.opened, want) {
+		t.Errorf("opened %v, want %v", rec.opened, want)
 	}
 }
