@@ -15,7 +15,6 @@ import (
 	"github.com/Anastylosis/MoanSubs/client"
 )
 
-// droppedFolder reports whether any dropped path is a directory.
 func droppedFolder(paths []string) bool {
 	for _, p := range paths {
 		if info, err := os.Stat(p); err == nil && info.IsDir() {
@@ -25,7 +24,6 @@ func droppedFolder(paths []string) bool {
 	return false
 }
 
-// parseLangs turns "en, de" into validated base subtags.
 func parseLangs(text string) ([]string, error) {
 	var out []string
 	for _, f := range strings.FieldsFunc(text, func(r rune) bool { return r == ',' || r == ' ' }) {
@@ -48,7 +46,6 @@ func (u *appUI) cancelBatch() {
 	}
 }
 
-// startFolder asks which language(s) to write, then runs the folder batch.
 func (u *appUI) startFolder(paths []string) {
 	p := u.app.Preferences()
 	entry := widget.NewEntry()
@@ -119,8 +116,6 @@ func (u *appUI) beginBatch(paths, langs []string, overwrite bool) {
 	}()
 }
 
-// resumeBatch is the second half of beginBatch, re-entered from the
-// "match without ffmpeg" fallback with empty ffmpeg paths.
 func (u *appUI) resumeBatch(videos, langs []string, overwrite bool, ffmpeg, ffprobe string) {
 	u.cancelBatch()
 	u.matchGen++
@@ -136,8 +131,6 @@ func (u *appUI) resumeBatch(videos, langs []string, overwrite bool, ffmpeg, ffpr
 	})
 }
 
-// runFolder runs core.RunBatch off the UI goroutine, appending one line per
-// video as it resolves and a summary at the end.
 func (u *appUI) runFolder(ctx context.Context, gen int, videos []string, opts core.BatchOptions) {
 	c := client.New(serverURL(u.app.Preferences()), "")
 	total := len(videos)
@@ -163,7 +156,6 @@ func (u *appUI) runFolder(ctx context.Context, gen int, videos []string, opts co
 	}()
 }
 
-// endBatch tears the batch UI down; err shows an error dialog, sum the tally.
 func (u *appUI) endBatch(gen int, err error, sum *core.BatchSummary) {
 	if gen != u.matchGen {
 		return

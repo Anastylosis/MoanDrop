@@ -11,16 +11,13 @@ import (
 	"github.com/Anastylosis/MoanSubs/client"
 )
 
-// BatchLookupVideos is how many videos go into one lookup call. A video
-// costs at most six bucket entries (one oshash prefix, five phash blocks),
-// the server takes 100 per request and charges one rate-limit token per
-// entry, so 16 videos stay in a single request (<= 96 tokens).
+// BatchLookupVideos is the videos per lookup: 6 bucket entries each, server takes 100 per request.
 const BatchLookupVideos = 16
 
-// BatchStatus is the outcome class of one video in a batch.
+// BatchStatus is a video's outcome.
 type BatchStatus string
 
-// BatchStatus values; BatchMatched is the outcome without writing.
+// Batch outcomes.
 const (
 	BatchWritten   BatchStatus = "written"
 	BatchHad       BatchStatus = "already had"
@@ -41,7 +38,7 @@ type BatchResult struct {
 	Err        error       `json:"-"`
 }
 
-// Line is the one-line rendering both surfaces show per video.
+// Line renders the result.
 func (r BatchResult) Line() string {
 	s := fmt.Sprintf("%-11s %s", r.Status, r.Path)
 	if r.Detail != "" {
@@ -50,14 +47,13 @@ func (r BatchResult) Line() string {
 	return s
 }
 
-// BatchSummary tallies a finished batch.
+// BatchSummary tallies a batch.
 type BatchSummary struct {
 	Results []BatchResult
 	Counts  map[BatchStatus]int
 }
 
-// Line is the final one-line tally; zero counts are omitted except the
-// always-relevant ones.
+// Line renders the tally.
 func (s BatchSummary) Line(write bool) string {
 	order := []BatchStatus{BatchWritten, BatchHad, BatchAmbiguous, BatchNoMatch, BatchError}
 	if !write {
@@ -70,8 +66,7 @@ func (s BatchSummary) Line(write bool) string {
 	return fmt.Sprintf("%d videos: %s", len(s.Results), strings.Join(parts, ", "))
 }
 
-// ExitCode is 1 when anything errored (or the run was cut short), 2 when
-// nothing was resolved (no video written, matched or already had), else 0.
+// ExitCode is the process exit code.
 func (s BatchSummary) ExitCode() int {
 	switch {
 	case s.Counts[BatchError] > 0:
@@ -84,22 +79,18 @@ func (s BatchSummary) ExitCode() int {
 
 // BatchOptions configures RunBatch.
 type BatchOptions struct {
-	Langs     []string
-	AllLangs  bool
-	Write     bool
-	Overwrite bool
-	// Jobs bounds concurrent fingerprinting (default 2).
+	Langs           []string
+	AllLangs        bool
+	Write           bool
+	Overwrite       bool
 	Jobs            int
 	FFmpeg, FFprobe string
-	// Fingerprint replaces FingerprintFile (test seam).
-	Fingerprint func(ctx context.Context, path string) (Fingerprint, error)
-	// OnResult is called once per video, never concurrently.
+	Fingerprint     func(ctx context.Context, path string) (Fingerprint, error)
+	// Called once per video, never concurrently.
 	OnResult func(BatchResult)
 }
 
-// ConfidentMatch returns the candidate a batch may write: the single top
-// candidate of an exact or high tier. Offers, and ties at the top tier
-// (two releases equally plausible), are ambiguous and never auto-written.
+// ConfidentMatch never auto-writes offers or ties at the top tier.
 func ConfidentMatch(candidates []Candidate) (Candidate, bool) {
 	if len(candidates) == 0 || candidates[0].Confidence == ConfidenceOffer {
 		return Candidate{}, false
@@ -116,9 +107,7 @@ type fpResult struct {
 	err error
 }
 
-// RunBatch fingerprints videos with a bounded worker pool, looks them up in
-// chunks, and with opts.Write downloads confident matches. A 429 or a
-// canceled ctx stops the run; videos not yet resolved are reported as errors.
+// RunBatch runs a folder batch.
 func RunBatch(ctx context.Context, c *client.Client, videos []string, opts BatchOptions) BatchSummary {
 	if opts.Jobs < 1 {
 		opts.Jobs = 2

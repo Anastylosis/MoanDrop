@@ -56,7 +56,6 @@ type appUI struct {
 	votes    map[int64]int
 	voteBusy bool
 
-	// batchCancel stops a running folder batch; UI goroutine only.
 	batchCancel context.CancelFunc
 }
 
@@ -247,8 +246,6 @@ func (u *appUI) promptSettings() {
 	d.Show()
 }
 
-// openServerPage opens page(server) in the browser, using the server text
-// as typed in Settings (unsaved is fine) or the default when blank.
 func (u *appUI) openServerPage(page func(string) string, server string) {
 	if strings.TrimSpace(server) == "" {
 		server = core.DefaultServerURL
@@ -481,12 +478,9 @@ func (u *appUI) pickSubtitleToShare() {
 	fd.Show()
 }
 
-// reviseButtonText is the track row's corrected-version button.
 const reviseButtonText = "Share a corrected version…"
 
-// pickSubtitleToRevise is the track row's file picker; the new file is
-// shared as a revision of tr, in the track's own language (the server
-// requires them to match).
+// The new file keeps the track's own language; the server requires a match.
 func (u *appUI) pickSubtitleToRevise(tr TrackRow) {
 	fd := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
 		if err != nil {

@@ -9,8 +9,6 @@ import (
 	"strings"
 )
 
-// videoExts matches the extensions the Windows context-menu entry covers,
-// plus the two other containers common in libraries.
 var videoExts = []string{".mp4", ".m4v", ".mkv", ".avi", ".wmv", ".flv", ".mov", ".mpg", ".mpeg", ".webm", ".m2ts"}
 
 // IsVideoFile reports whether path has a video extension.
@@ -24,10 +22,7 @@ func IsVideoFile(path string) bool {
 	return false
 }
 
-// CollectVideos expands paths into a sorted, de-duplicated list of video
-// files: a file is taken as named (whatever its extension), a directory is
-// walked recursively for video extensions. Symlinked directories inside a
-// walk are not followed; a symlink to a regular file counts as a file.
+// CollectVideos lists videos under paths; symlinked directories are not followed.
 func CollectVideos(paths []string) ([]string, error) {
 	seen := map[string]bool{}
 	var out []string
@@ -68,9 +63,7 @@ func CollectVideos(paths []string) ([]string, error) {
 	return out, nil
 }
 
-// HasSidecarFor reports whether videoPath already has a subtitle sidecar
-// for every language in langs (matched by base subtag). False when langs
-// is empty: without a requested language there is nothing to be "had".
+// HasSidecarFor is false on empty langs: nothing requested, nothing to have.
 func HasSidecarFor(videoPath string, langs []string) bool {
 	if len(langs) == 0 {
 		return false

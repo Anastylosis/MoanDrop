@@ -221,14 +221,12 @@ func (u *appUI) shareSidecar(subPath, lang string) {
 	u.askAndPush(subPath, lang, 0)
 }
 
-// reviseTrack shares subPath as a corrected version of tr, after checking
-// the node supports revisions: an older one would ignore the field and
-// store an unrelated new track.
 func (u *appUI) reviseTrack(subPath string, tr TrackRow) {
 	if token(u.app.Preferences()) == "" {
 		u.promptToken(func() { u.reviseTrack(subPath, tr) })
 		return
 	}
+	// Check first: an older node would ignore the field and store an unrelated new track.
 	u.withFeature(core.FeatureRevisions, func(supported bool) {
 		if !supported {
 			dialog.ShowInformation("Cannot revise", core.RevisionsUnsupportedMessage, u.win)
@@ -238,8 +236,6 @@ func (u *appUI) reviseTrack(subPath string, tr TrackRow) {
 	})
 }
 
-// askAndPush is the share flow past language and token: the authorship ask
-// where the node records it, then the push.
 func (u *appUI) askAndPush(subPath, lang string, supersedes int64) {
 	// The authorship/declaration ask only makes sense on a node that
 	// records the answer; an older one gets the plain push it always did

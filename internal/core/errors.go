@@ -9,8 +9,7 @@ import (
 	"github.com/Anastylosis/MoanSubs/client"
 )
 
-// ExplainError rewords the server errors a user can act on: the three
-// supersede refusals, and the one fixed by waiting —
+// ExplainError rewords the one server error a user can act on by waiting:
 // a 429 becomes "rate limited, try again in Ns", using the server's own
 // Retry-After (the exact wait until the budget has a slot; see API.md)
 // when it sent one. Every other error passes through untouched, so both

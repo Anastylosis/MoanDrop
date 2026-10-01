@@ -94,7 +94,6 @@ func setAuthorship(p fyne.Preferences, v string) {
 	p.SetString(prefAuthorship, v)
 }
 
-// batchLangs is the folder dialog's remembered language list.
 func batchLangs(p fyne.Preferences) string {
 	return p.StringWithFallback(prefBatchLangs, "en")
 }

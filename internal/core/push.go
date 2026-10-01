@@ -54,9 +54,7 @@ type PushOptions struct {
 	// Authorship is "" (say nothing) or one of AuthorshipOrder.
 	Authorship string
 	// Generated is the voluntary AI-generated declaration.
-	Generated bool
-	// Supersedes is the track id this upload revises (feature "revisions");
-	// zero for an ordinary upload.
+	Generated  bool
 	Supersedes int64
 }
 
@@ -72,10 +70,7 @@ type PushResult struct {
 	// Duplicate means a byte-identical track already existed server-side —
 	// not an error, and not new sharing (the server never duplicates
 	// identical bytes).
-	Duplicate bool
-	// Revision is set when the server accepted the upload as a revision of
-	// Supersedes; RevisionDeclined ("retime" or "too_different") means it
-	// was stored as an ordinary new track instead.
+	Duplicate        bool
 	Revision         int64
 	Supersedes       int64
 	RevisionDeclined string
@@ -190,7 +185,7 @@ func PushSidecar(ctx context.Context, c *client.Client, videoPath, lang string, 
 	}, nil
 }
 
-// HasFeature probes GET /api/v1/version for name.
+// HasFeature reports whether the node advertises name.
 func HasFeature(ctx context.Context, c *client.Client, name string) (bool, error) {
 	v, err := c.Version(ctx)
 	if err != nil {
