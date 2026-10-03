@@ -35,6 +35,13 @@ type Fingerprint struct {
 // matches against the node trustworthy); pass both empty to skip phash and
 // duration entirely — oshash needs no external tools.
 func FingerprintFile(ctx context.Context, ffmpegPath, ffprobePath, videoPath string) (Fingerprint, error) {
+	return FingerprintFileProgress(ctx, ffmpegPath, ffprobePath, videoPath, nil)
+}
+
+// FingerprintFileProgress is FingerprintFile with an optional onFrame hook,
+// called once per sampled frame (done = 1..PhashFrames, in order) from a
+// background goroutine. Results are identical with or without the hook.
+func FingerprintFileProgress(ctx context.Context, ffmpegPath, ffprobePath, videoPath string, onFrame func(done int)) (Fingerprint, error) {
 	osh, err := oshash.FromFile(videoPath)
 	if err != nil {
 		return Fingerprint{}, err
@@ -53,7 +60,7 @@ func FingerprintFile(ctx context.Context, ffmpegPath, ffprobePath, videoPath str
 	if err != nil {
 		return Fingerprint{}, err
 	}
-	p, err := videophash.Generate(ctx, ffmpegPath, videoPath, d)
+	p, err := generateCounting(ctx, ffmpegPath, videoPath, d, onFrame)
 	if err != nil {
 		return Fingerprint{}, err
 	}

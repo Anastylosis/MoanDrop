@@ -104,3 +104,15 @@ func RevisionLabel(revision int) string {
 	}
 	return fmt.Sprintf("rev %d", revision)
 }
+
+// ConfidenceLabel words a candidate's confidence level for display.
+func ConfidenceLabel(c string) string {
+	switch c {
+	case ConfidenceExact:
+		return "Exact match"
+	case ConfidenceHigh:
+		return "Close match"
+	default:
+		return "Possible match"
+	}
+}
