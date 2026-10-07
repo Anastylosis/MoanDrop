@@ -66,17 +66,29 @@ func (u *appUI) runMatch(gen int, path, ffmpeg, ffprobe string) {
 	if gen != u.matchGen {
 		return
 	}
-	u.setBusy(true)
+	sampling := ffmpeg != ""
+	if sampling {
+		u.drop.SetFrames(0)
+	} else {
+		u.setBusy(true)
+	}
 	u.setStatus(core.FingerprintingMessage)
 
 	go func() {
 		ctx := context.Background()
-		fp, err := core.FingerprintFile(ctx, ffmpeg, ffprobe, path)
+		fp, err := core.FingerprintFileProgress(ctx, ffmpeg, ffprobe, path, func(done int) {
+			fyne.Do(func() {
+				if gen == u.matchGen {
+					u.drop.SetFrames(done)
+				}
+			})
+		})
 		if err != nil {
 			fyne.Do(func() {
 				if gen != u.matchGen {
 					return
 				}
+				u.drop.SetFrames(-1)
 				u.setBusy(false)
 				u.setStatus("")
 				showError(u.win, err)
@@ -86,6 +98,8 @@ func (u *appUI) runMatch(gen int, path, ffmpeg, ffprobe string) {
 
 		fyne.Do(func() {
 			if gen == u.matchGen {
+				u.drop.SetFrames(-1)
+				u.setBusy(true)
 				u.setStatus("looking up...")
 			}
 		})

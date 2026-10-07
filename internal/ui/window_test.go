@@ -220,10 +220,10 @@ func TestRenderCandidates_DeclaredBadgeAndCreditReachTheRow(t *testing.T) {
 	if !strings.Contains(all, "by somebody") {
 		t.Error("a credited track's credit never reaches the row")
 	}
-	if findButton(u.win.Content(), core.LabelDeclaredGenerated) == nil {
+	if !hasChip(u.win.Content(), core.LabelDeclaredGenerated) {
 		t.Error("a declared-AI track must carry the declared badge, not the detected one")
 	}
-	if findButton(u.win.Content(), core.LabelGenerated) != nil {
+	if hasChip(u.win.Content(), core.LabelGenerated) {
 		t.Error("no detected-AI track was rendered, yet its badge appears")
 	}
 	if !strings.Contains(all, core.GeneratedExplainer) {

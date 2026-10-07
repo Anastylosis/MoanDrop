@@ -128,9 +128,21 @@ func collectTexts(o fyne.CanvasObject) []string {
 			out = append(out, v.Text)
 		case *widget.Card:
 			out = append(out, v.Title, v.Subtitle)
+		case *chip:
+			out = append(out, v.Text)
 		}
 	})
 	return out
+}
+
+func hasChip(o fyne.CanvasObject, text string) bool {
+	found := false
+	walkCanvas(o, func(c fyne.CanvasObject) {
+		if ch, ok := c.(*chip); ok && ch.Text == text {
+			found = true
+		}
+	})
+	return found
 }
 
 // tapButtonOn finds text among win's main content and its overlays (a shown

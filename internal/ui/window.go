@@ -25,7 +25,8 @@ type appUI struct {
 
 	status   *widget.Label
 	busy     *widget.ProgressBarInfinite
-	drop     *widget.Label
+	drop     *dropZone
+	batchBar *widget.ProgressBar
 	list     *fyne.Container
 	scroll   *container.Scroll
 	shareBox *fyne.Container
@@ -96,11 +97,9 @@ func (u *appUI) build() {
 		fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 	privacy.Wrapping = fyne.TextWrapWord
 
-	u.drop = widget.NewLabelWithStyle(
-		"Drop a video or a folder here, or use File > Open Video...",
-		fyne.TextAlignCenter, fyne.TextStyle{})
-	u.drop.Wrapping = fyne.TextWrapWord
-	dropArea := widget.NewCard("", "", container.NewCenter(u.drop))
+	u.drop = newDropZone()
+	u.batchBar = widget.NewProgressBar()
+	u.batchBar.Hide()
 
 	u.busy = widget.NewProgressBarInfinite()
 	u.busy.Hide()
@@ -120,7 +119,7 @@ func (u *appUI) build() {
 	u.fitPrompt.Hide()
 
 	content := container.NewBorder(
-		container.NewVBox(privacy, dropArea, u.busy, u.shareBox),
+		container.NewVBox(privacy, u.drop.Container, u.batchBar, u.busy, u.shareBox),
 		container.NewVBox(u.fitPrompt, u.status),
 		nil, nil,
 		u.scroll,
@@ -300,10 +299,6 @@ func (u *appUI) renderCandidates(rows []CandidateRow) {
 	u.list.RemoveAll()
 	sawGenerated := false
 	for _, row := range rows {
-		header := row.Confidence
-		if row.Evidence != "" {
-			header = fmt.Sprintf("%s — %s", row.Confidence, row.Evidence)
-		}
 		trackRows := container.NewVBox()
 		for _, tr := range row.Tracks {
 			trackRows.Add(u.trackRowWidget(tr))
@@ -311,15 +306,28 @@ func (u *appUI) renderCandidates(rows []CandidateRow) {
 				sawGenerated = true
 			}
 		}
-		body := fyne.CanvasObject(trackRows)
-		if byline := ReleaseByline(row.Release); byline != "" {
-			bl := widget.NewLabelWithStyle(byline, fyne.TextAlignLeading, fyne.TextStyle{Italic: true})
-			bl.Wrapping = fyne.TextWrapWord
-			body = container.NewVBox(bl, trackRows)
+		title := widget.NewLabelWithStyle(ReleaseLabel(row.Release), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+		title.Wrapping = fyne.TextWrapWord
+		verdict := widget.NewLabel(core.ConfidenceLabel(row.Confidence))
+		if row.Confidence == core.ConfidenceExact {
+			verdict.Importance = widget.SuccessImportance
 		}
-		card := widget.NewCard(ReleaseLabel(row.Release),
-			fmt.Sprintf("%s (release %d)", header, row.Release.ID), body)
-		u.list.Add(card)
+		sub := fmt.Sprintf("release %d", row.Release.ID)
+		if row.Evidence != "" {
+			sub = fmt.Sprintf("%s  %s", row.Evidence, sub)
+		}
+		entry := container.NewVBox(
+			container.NewBorder(nil, nil, nil, verdict, title),
+			monoLabel(sub),
+		)
+		if byline := ReleaseByline(row.Release); byline != "" {
+			bl := widget.NewLabel(byline)
+			bl.Wrapping = fyne.TextWrapWord
+			entry.Add(bl)
+		}
+		entry.Add(widget.NewSeparator())
+		entry.Add(trackRows)
+		u.list.Add(container.NewVBox(entry, widget.NewSeparator()))
 	}
 	if sawGenerated {
 		explainer := widget.NewLabel(core.GeneratedExplainer)
@@ -330,50 +338,43 @@ func (u *appUI) renderCandidates(rows []CandidateRow) {
 }
 
 func (u *appUI) trackRowWidget(tr TrackRow) fyne.CanvasObject {
-	made := core.LabelHuman
-	if tr.Badge != "" {
-		made = tr.Badge
-	}
-	// Same rule as the CLI: "default" is the unmarked case, every other
-	// declared kind (cc/sdh/forced/other) distinguishes same-language tracks.
-	kind := ""
+	lang := widget.NewLabelWithStyle(tr.Track.Lang, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	head := container.NewHBox(lang)
+	// "default" is the unmarked case; every other declared kind
+	// (cc/sdh/forced/other) distinguishes same-language tracks.
 	if k := tr.Track.Kind; k != "" && k != "default" {
-		kind = "  " + k
-	}
-	credit := ""
-	if tr.Credit != "" {
-		credit = "  " + tr.Credit
+		head.Add(newChip(k, false))
 	}
 	if rev := core.RevisionLabel(tr.Track.Revision); rev != "" {
-		kind += "  " + rev
+		head.Add(newChip(rev, false))
 	}
-	info := widget.NewLabel(fmt.Sprintf("%s  %s%s%s", tr.Track.Lang, made, kind, credit))
-	downloads := widget.NewLabel(fmt.Sprintf("%d downloads", tr.Track.Downloads))
+	if tr.Badge != "" {
+		head.Add(newChip(tr.Badge, true))
+	}
+
 	// counts is a handle a cast vote's response (or a post-retract
 	// VoteCounts) updates in place, so voting never needs a full
-	// renderCandidates rebuild — which would also lose the scroll position.
-	counts := widget.NewLabel(voteCountsText(tr.Track.Up, tr.Track.Down))
-
-	items := []fyne.CanvasObject{info}
-	if tr.Badge != "" {
-		badge := widget.NewButtonWithIcon(tr.Badge, theme.InfoIcon(), func() {
-			dialog.ShowInformation("AI-generated subtitle", tr.Tooltip, u.win)
-		})
-		badge.Importance = widget.WarningImportance
-		items = append(items, badge)
+	// renderCandidates rebuild, which would also lose the scroll position.
+	counts := monoLabel(voteCountsText(tr.Track.Up, tr.Track.Down))
+	sub := container.NewHBox()
+	if tr.Credit != "" {
+		sub.Add(monoLabel(tr.Credit))
 	}
-	items = append(items, counts, downloads, u.voteRowWidget(tr, counts))
+	sub.Add(monoLabel(fmt.Sprintf("%d downloads", tr.Track.Downloads)))
+	sub.Add(counts)
 
 	dl := widget.NewButtonWithIcon("Download", theme.DownloadIcon(), func() {
 		u.downloadTrack(tr)
 	})
-	items = append(items, dl)
+	dl.Importance = widget.HighImportance
+	acts := container.NewHBox(u.voteRowWidget(tr, counts))
 	if token(u.app.Preferences()) != "" {
-		items = append(items, widget.NewButtonWithIcon(reviseButtonText, theme.UploadIcon(), func() {
+		acts.Add(widget.NewButton(reviseButtonText, func() {
 			u.pickSubtitleToRevise(tr)
 		}))
 	}
-	return container.NewHBox(items...)
+	acts.Add(dl)
+	return container.NewBorder(nil, nil, container.NewVBox(head, sub), acts)
 }
 
 // voteCountsText is the counts label's exact text, shared between the
@@ -478,7 +479,7 @@ func (u *appUI) pickSubtitleToShare() {
 	fd.Show()
 }
 
-const reviseButtonText = "Share a corrected version…"
+const reviseButtonText = "Share a correction"
 
 // The new file keeps the track's own language; the server requires a match.
 func (u *appUI) pickSubtitleToRevise(tr TrackRow) {

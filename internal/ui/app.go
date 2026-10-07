@@ -14,6 +14,7 @@ import (
 func Run(initialVideo string) error {
 	a := app.NewWithID(appID)
 	a.SetIcon(appIcon)
+	a.Settings().SetTheme(moanTheme{})
 	w := a.NewWindow("MoanDrop")
 
 	u := &appUI{app: a, win: w}

@@ -125,7 +125,7 @@ func (u *appUI) resumeBatch(videos, langs []string, overwrite bool, ffmpeg, ffpr
 	u.shareBox.RemoveAll()
 	u.shareBox.Add(widget.NewButton("Stop", cancel))
 	u.shareBox.Refresh()
-	u.setBusy(true)
+	u.setBusy(false)
 	u.runFolder(ctx, gen, videos, core.BatchOptions{
 		Langs: langs, Write: true, Overwrite: overwrite, Jobs: 2, FFmpeg: ffmpeg, FFprobe: ffprobe,
 	})
@@ -136,6 +136,9 @@ func (u *appUI) runFolder(ctx context.Context, gen int, videos []string, opts co
 	total := len(videos)
 	done := 0
 	u.setStatus(fmt.Sprintf("0 of %d videos — %s", total, core.FingerprintingMessage))
+	u.batchBar.Max = float64(total)
+	u.batchBar.SetValue(0)
+	u.batchBar.Show()
 	opts.OnResult = func(r core.BatchResult) {
 		fyne.Do(func() {
 			if gen != u.matchGen {
@@ -147,6 +150,7 @@ func (u *appUI) runFolder(ctx context.Context, gen int, videos []string, opts co
 			u.list.Add(line)
 			u.list.Refresh()
 			u.scroll.ScrollToBottom()
+			u.batchBar.SetValue(float64(done))
 			u.setStatus(fmt.Sprintf("%d of %d videos", done, total))
 		})
 	}
@@ -162,6 +166,7 @@ func (u *appUI) endBatch(gen int, err error, sum *core.BatchSummary) {
 	}
 	u.batchCancel = nil
 	u.setBusy(false)
+	u.batchBar.Hide()
 	u.shareBox.RemoveAll()
 	u.shareBox.Refresh()
 	u.setStatus("")

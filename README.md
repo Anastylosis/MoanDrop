@@ -231,7 +231,7 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   A push that matches a subtitle already on the node reports that calmly
   ("already on the node") rather than as an error — the server never
   stores identical bytes twice. With a token set, each track row also has
-  **Share a corrected version…**: pick a subtitle file and it is pushed as
+  **Share a correction**: pick a subtitle file and it is pushed as
   a revision of that track (same questions as above; needs a node with the
   `revisions` feature), and revised tracks are tagged `rev N`.
 - **Did it fit?**: after downloading a subtitle authored for another cut,
@@ -330,6 +330,13 @@ go install github.com/Anastylosis/MoanDrop@latest
 On Windows, build with `-ldflags -H=windowsgui` to suppress the console window
 behind the GUI (the release builds do). The headless CLI has none of these
 requirements. The GUI cannot be cross-compiled; build on the target OS.
+
+## Third-party notices
+
+The window bundles Atkinson Hyperlegible Next and Atkinson Hyperlegible Mono
+(Braille Institute and the Atkinson Hyperlegible Project Authors), licensed
+under the SIL Open Font License 1.1; the licence text is
+`internal/ui/fonts/OFL.txt`.
 
 ## Support
 

@@ -14,3 +14,5 @@ contents:
     dst: /usr/share/applications/moandrop.desktop
   - src: internal/ui/icon.png
     dst: /usr/share/icons/hicolor/256x256/apps/moandrop.png
+  - src: internal/ui/fonts/OFL.txt
+    dst: /usr/share/doc/moandrop/OFL.txt

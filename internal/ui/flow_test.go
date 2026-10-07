@@ -154,8 +154,8 @@ func TestStartVideo_CandidatesRenderEvidenceKindAndBadge(t *testing.T) {
 			t.Errorf("rendered content missing %q; got:\n%s", want, all)
 		}
 	}
-	if findButton(u.win.Content(), core.LabelGenerated) == nil {
-		t.Error("no AI badge button rendered for the generated track")
+	if !hasChip(u.win.Content(), core.LabelGenerated) {
+		t.Error("no AI badge chip rendered for the generated track")
 	}
 }
 
