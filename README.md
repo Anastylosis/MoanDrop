@@ -154,12 +154,15 @@ between equally good releases, are reported as *ambiguous* and left for
 you to pick with `match` on that file. Ctrl-C stops cleanly, and `--json`
 prints one object per video. `--exact` is single-file only.
 
-Rate limits are cooperative: a `429` from the server is reported as "try
-again in Ns", using the wait the server itself named in `Retry-After`.
+Rate limits are cooperative: on a `429` lookups and downloads wait for the
+`Retry-After` the server named (else a short doubling backoff) and retry, up
+to 4 times, printing "server busy, retrying" to stderr (the window shows it
+in its status line). A wait longer than 30 seconds, or running out of
+attempts, gives up with "try again in Ns" (a folder run stops there).
 
 Exit codes: `0` success, `1` error, `2` no match — so a file-manager script
 can tell "nothing found" from "something broke". For a folder: `1` if any
-video failed (or the run was interrupted or rate-limited), else `2` if not a
+video failed (or the run was interrupted or stayed rate-limited), else `2` if not a
 single video was written, matched or already had its subtitle, else `0` —
 a few unmatched videos in an otherwise good folder are not a failure.
 

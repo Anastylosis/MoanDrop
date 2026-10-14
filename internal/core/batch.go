@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Anastylosis/MoanSubs/client"
 )
@@ -88,6 +89,8 @@ type BatchOptions struct {
 	Fingerprint     func(ctx context.Context, path string) (Fingerprint, error)
 	// Called once per video, never concurrently.
 	OnResult func(BatchResult)
+	// Called before each rate-limit wait, never concurrently.
+	OnBusy func(wait time.Duration)
 }
 
 // ConfidentMatch never auto-writes offers or ties at the top tier.
@@ -185,7 +188,11 @@ func RunBatch(ctx context.Context, c *client.Client, videos []string, opts Batch
 		for k, p := range batch {
 			keys[k] = client.SceneKeys{OSHash: p.fp.OSHash, PHash: p.fp.PHash}
 		}
-		perScene, err := c.LookupBucketsBatch(ctx, keys)
+		var perScene [][]client.Release
+		err := WithRetry429(ctx, opts.OnBusy, func() (lerr error) {
+			perScene, lerr = c.LookupBucketsBatch(ctx, keys)
+			return lerr
+		})
 		if err != nil {
 			if isRateLimited(err) || ctx.Err() != nil {
 				abort = err
@@ -267,7 +274,11 @@ func resolveOne(ctx context.Context, c *client.Client, video string, fp Fingerpr
 	forRelease := ForRelease(top)
 	had := 0
 	for _, t := range selected {
-		d, err := DownloadTrack(ctx, c, video, t.ID, forRelease, t.Lang, opts.Overwrite)
+		var d DownloadResult
+		err := WithRetry429(ctx, opts.OnBusy, func() (derr error) {
+			d, derr = DownloadTrack(ctx, c, video, t.ID, forRelease, t.Lang, opts.Overwrite)
+			return derr
+		})
 		switch {
 		case errors.Is(err, ErrSidecarExists):
 			had++

@@ -176,7 +176,7 @@ func TestRunBatch_NoWriteReportsMatch(t *testing.T) {
 
 func TestRunBatch_RateLimitStopsAndReports(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Retry-After", "30")
+		w.Header().Set("Retry-After", "300")
 		http.Error(w, "slow down", http.StatusTooManyRequests)
 	}))
 	t.Cleanup(srv.Close)
@@ -186,7 +186,7 @@ func TestRunBatch_RateLimitStopsAndReports(t *testing.T) {
 	if sum.Counts[BatchError] != 2 || sum.ExitCode() != 1 {
 		t.Fatalf("counts = %v exit %d", sum.Counts, sum.ExitCode())
 	}
-	if d := sum.Results[0].Detail; !strings.Contains(d, "try again in 30s") {
+	if d := sum.Results[0].Detail; !strings.Contains(d, "try again in 5m0s") {
 		t.Errorf("detail = %q, want the Retry-After wording", d)
 	}
 }

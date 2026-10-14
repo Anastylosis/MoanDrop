@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -66,6 +67,10 @@ rate-limited), 2 if no video could be resolved.`,
 	return cmd
 }
 
+func printBusy(wait time.Duration) {
+	fmt.Fprintln(os.Stderr, core.ServerBusyMessage(wait))
+}
+
 func isBatchArgs(args []string) bool {
 	if len(args) > 1 {
 		return true
@@ -107,6 +112,7 @@ func runBatch(ctx context.Context, args, langs []string, write, overwrite, allLa
 	sum := core.RunBatch(ctx, client.New(flagServer, flagToken), videos, core.BatchOptions{
 		Langs: langs, AllLangs: allLangs, Write: write, Overwrite: overwrite,
 		Jobs: jobs, FFmpeg: ffmpeg, FFprobe: ffprobe,
+		OnBusy: printBusy,
 		OnResult: func(r core.BatchResult) {
 			if !flagJSON {
 				fmt.Println(r.Line())
@@ -147,11 +153,14 @@ func runMatch(ctx context.Context, videoPath string, langs []string, write, over
 
 	c := client.New(flagServer, flagToken)
 	var releases []client.Release
-	if exact {
-		releases, err = c.LookupExact(ctx, fp.OSHash, fp.PHash, 8)
-	} else {
-		releases, err = c.LookupBuckets(ctx, fp.OSHash, fp.PHash)
-	}
+	err = core.WithRetry429(ctx, printBusy, func() (lerr error) {
+		if exact {
+			releases, lerr = c.LookupExact(ctx, fp.OSHash, fp.PHash, 8)
+		} else {
+			releases, lerr = c.LookupBuckets(ctx, fp.OSHash, fp.PHash)
+		}
+		return lerr
+	})
 	if err != nil {
 		return err
 	}
@@ -235,7 +244,11 @@ func writeMatches(ctx context.Context, c *client.Client, videoPath string, candi
 
 	forRelease := core.ForRelease(top)
 	for _, t := range selected {
-		res, err := core.DownloadTrack(ctx, c, videoPath, t.ID, forRelease, t.Lang, overwrite)
+		var res core.DownloadResult
+		err := core.WithRetry429(ctx, printBusy, func() (derr error) {
+			res, derr = core.DownloadTrack(ctx, c, videoPath, t.ID, forRelease, t.Lang, overwrite)
+			return derr
+		})
 		if err != nil {
 			return err
 		}

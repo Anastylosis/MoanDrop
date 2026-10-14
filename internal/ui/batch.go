@@ -139,6 +139,7 @@ func (u *appUI) runFolder(ctx context.Context, gen int, videos []string, opts co
 	u.batchBar.Max = float64(total)
 	u.batchBar.SetValue(0)
 	u.batchBar.Show()
+	opts.OnBusy = u.busyNotice(gen)
 	opts.OnResult = func(r core.BatchResult) {
 		fyne.Do(func() {
 			if gen != u.matchGen {

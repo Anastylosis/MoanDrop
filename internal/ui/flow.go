@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
@@ -105,7 +106,11 @@ func (u *appUI) runMatch(gen int, path, ffmpeg, ffprobe string) {
 		})
 
 		c := client.New(serverURL(u.app.Preferences()), "")
-		releases, err := c.LookupBuckets(ctx, fp.OSHash, fp.PHash)
+		var releases []client.Release
+		err = core.WithRetry429(ctx, u.busyNotice(gen), func() (lerr error) {
+			releases, lerr = c.LookupBuckets(ctx, fp.OSHash, fp.PHash)
+			return lerr
+		})
 		if err != nil {
 			fyne.Do(func() {
 				if gen != u.matchGen {
@@ -135,6 +140,17 @@ func (u *appUI) runMatch(gen int, path, ffmpeg, ffprobe string) {
 	}()
 }
 
+// busyNotice returns a rate-limit wait callback safe to call off the UI goroutine.
+func (u *appUI) busyNotice(gen int) func(time.Duration) {
+	return func(wait time.Duration) {
+		fyne.Do(func() {
+			if gen == u.matchGen {
+				u.setStatus(core.ServerBusyMessage(wait))
+			}
+		})
+	}
+}
+
 // downloadTrack writes tr's track beside the video, off the UI goroutine so
 // a blocking download can't freeze the window. It never os.Stats first —
 // core.WriteSidecar's own existence check is the sole, race-free source of truth.
@@ -154,7 +170,11 @@ func (u *appUI) downloadTrack(tr TrackRow) {
 func (u *appUI) attemptDownload(c *client.Client, videoPath string, tr TrackRow, overwrite bool) {
 	gen := u.matchGen
 	go func() {
-		res, err := core.DownloadTrack(context.Background(), c, videoPath, tr.Track.ID, tr.ForRelease, tr.Track.Lang, overwrite)
+		var res core.DownloadResult
+		err := core.WithRetry429(context.Background(), u.busyNotice(gen), func() (derr error) {
+			res, derr = core.DownloadTrack(context.Background(), c, videoPath, tr.Track.ID, tr.ForRelease, tr.Track.Lang, overwrite)
+			return derr
+		})
 		if err != nil {
 			if errors.Is(err, core.ErrSidecarExists) {
 				path := videoPath
