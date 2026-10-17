@@ -115,6 +115,10 @@ moandrop match --lang en --write "Some Scene (1080p).mp4"
 # English sidecar, writes only confident matches
 moandrop match --lang en --write ~/Videos
 
+# Nothing matched? Search by title, studio or performer, then pick a track
+moandrop search some scene --lang en
+moandrop search some scene --write "Some Scene (1080p).mp4" --track 70
+
 # Share a subtitle you already have (needs a token — create an account
 # on the server, then export MOANDROP_TOKEN or pass --token)
 moandrop push "Some Scene (1080p).mp4" "Some Scene (1080p).en.srt"
@@ -153,6 +157,14 @@ written: a single exact or high-confidence release. Offers, and ties
 between equally good releases, are reported as *ambiguous* and left for
 you to pick with `match` on that file. Ctrl-C stops cleanly, and `--json`
 prints one object per video. `--exact` is single-file only.
+
+`search` is for a video that matched nothing by fingerprint (the node must
+advertise the `search` feature). It lists releases whose title, studio or
+performer matches, with their tracks, and notes when more matched than are
+shown. With `--write <video>` it downloads one track beside the video: name
+it with `--track <id>`, or give `--lang` when exactly one listed track fits.
+A track found this way was timed against some other file, so its sync is
+unknown and the output says so. Exit code `2` when nothing is found.
 
 Rate limits are cooperative: on a `429` lookups and downloads wait for the
 `Retry-After` the server named (else a short doubling backoff) and retry, up

@@ -200,23 +200,10 @@ func printCandidates(candidates []core.Candidate) {
 	for _, cand := range candidates {
 		fmt.Printf("release %d  %s%s\n", cand.Release.ID, cand.Confidence, evidenceNote(cand))
 		for _, t := range cand.Release.Tracks {
-			madeBy := core.GeneratedLabel(t.Generated, t.GeneratedSource)
 			if t.Generated {
 				sawGenerated = true
 			}
-			kind := ""
-			if t.Kind != "" && t.Kind != "default" {
-				kind = " " + t.Kind
-			}
-			if rev := core.RevisionLabel(t.Revision); rev != "" {
-				kind += " " + rev
-			}
-			credit := ""
-			if line := core.CreditLine(t.CreditedTo); line != "" {
-				credit = "  " + line
-			}
-			fmt.Printf("  track %-6d %-4s %-13s%s  ↑%d ↓%d  %d downloads%s\n",
-				t.ID, t.Lang, madeBy, kind, t.Up, t.Down, t.Downloads, credit)
+			fmt.Println(trackLine(t))
 		}
 	}
 	if sawGenerated {
@@ -255,4 +242,21 @@ func writeMatches(ctx context.Context, c *client.Client, videoPath string, candi
 		fmt.Printf("%s %s%s\n", res.Verb(), res.Path, res.Note())
 	}
 	return nil
+}
+
+func trackLine(t client.TrackSummary) string {
+	madeBy := core.GeneratedLabel(t.Generated, t.GeneratedSource)
+	kind := ""
+	if t.Kind != "" && t.Kind != "default" {
+		kind = " " + t.Kind
+	}
+	if rev := core.RevisionLabel(t.Revision); rev != "" {
+		kind += " " + rev
+	}
+	credit := ""
+	if line := core.CreditLine(t.CreditedTo); line != "" {
+		credit = "  " + line
+	}
+	return fmt.Sprintf("  track %-6d %-4s %-13s%s  ↑%d ↓%d  %d downloads%s",
+		t.ID, t.Lang, madeBy, kind, t.Up, t.Down, t.Downloads, credit)
 }
