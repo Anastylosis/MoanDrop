@@ -132,6 +132,7 @@ func (u *appUI) runMatch(gen int, path, ffmpeg, ffprobe string) {
 			if len(candidates) == 0 {
 				u.setStatus(core.NoMatchMessage)
 				showNoMatch(u.win, fp.PHash != nil)
+				u.offerSearch(path)
 				return
 			}
 			u.setStatus(fmt.Sprintf("found %d candidate(s)", len(candidates)))
@@ -204,7 +205,11 @@ func (u *appUI) attemptDownload(c *client.Client, videoPath string, tr TrackRow,
 		}
 		fyne.Do(func() {
 			u.downloadBusy = false
-			u.setStatus(fmt.Sprintf("%s %s%s", res.Verb(), res.Path, res.Note()))
+			msg := fmt.Sprintf("%s %s%s", res.Verb(), res.Path, res.Note())
+			if tr.FromSearch {
+				msg += "\n" + core.SearchSyncUnknown
+			}
+			u.setStatus(msg)
 			if gen == u.matchGen {
 				u.offerFitPrompt(tr)
 			}

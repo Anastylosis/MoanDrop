@@ -192,6 +192,11 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   a summary at the end. It follows the same rules as `match --write` on a
   folder: videos that already have a subtitle are skipped, and only
   confident matches are written.
+- **Nothing matched**: when the node supports search, a search box appears
+  under the "no match" message, prefilled with the file name tidied up
+  (separators and quality tags dropped). Results list releases with a
+  Download button per track. A track found this way was timed against some
+  other file, so the window says its sync is unknown.
 - **First run**: a one-time 18+ confirmation, matching the server's own
   age gate on every human-facing page. Declining exits the app; accepting
   is remembered.

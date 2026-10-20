@@ -48,6 +48,7 @@ type appUI struct {
 	features       []string
 	featuresProbed bool
 	shareBusy      bool
+	searchBusy     bool
 
 	// votes remembers this session's own cast votes by trackID (1 or -1) —
 	// only enough to decide whether a row shows the +1/-1 buttons or the
