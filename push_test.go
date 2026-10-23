@@ -285,3 +285,97 @@ func TestRunPush_RevisesConflictReadsInPlainWords(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestRunPush_SceneDetailsReachTheServer(t *testing.T) {
+	var got client.UploadRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(client.UploadResult{TrackID: 3, ReleaseID: 4})
+	}))
+	t.Cleanup(srv.Close)
+
+	video, sub := revisionFiles(t)
+	flagServer, flagToken = srv.URL, "tok"
+	t.Cleanup(func() { flagServer, flagToken = "", "" })
+
+	scene := core.SceneDetails{Title: "A Title", Date: "2024-03-01", Studio: "Studio", Performers: []string{"Alice", "Bob"}}
+	captureStdout(t, func() {
+		if err := runPush(context.Background(), video, sub, "en", true, core.PushOptions{SceneDetails: scene}); err != nil {
+			t.Fatalf("runPush: %v", err)
+		}
+	})
+	if got.Title != "A Title" || got.Date != "2024-03-01" || got.Studio != "Studio" || len(got.Performers) != 2 {
+		t.Errorf("server saw %+v", got)
+	}
+}
+
+func TestRunPush_BadDateFailsBeforeNetwork(t *testing.T) {
+	hit := false
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { hit = true }))
+	t.Cleanup(srv.Close)
+	video, sub := revisionFiles(t)
+	flagServer, flagToken = srv.URL, "tok"
+	t.Cleanup(func() { flagServer, flagToken = "", "" })
+
+	err := runPush(context.Background(), video, sub, "en", true, core.PushOptions{SceneDetails: core.SceneDetails{Date: "03/01/2024"}})
+	if err == nil || !strings.Contains(err.Error(), "YYYY-MM-DD") {
+		t.Fatalf("err = %v, want a date format error", err)
+	}
+	if hit {
+		t.Error("a bad date must fail before the network")
+	}
+}
+
+func TestRunDetails_SendsOshashAndReportsOutcome(t *testing.T) {
+	var got struct {
+		Entries []client.MetadataEntry `json:"entries"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/version" {
+			_, _ = w.Write([]byte(`{"version":"t","features":["metadata"]}`))
+			return
+		}
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		_, _ = w.Write([]byte(`{"results":[{"release_id":4,"known":true,"recorded":true}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	video, _ := revisionFiles(t)
+	flagServer, flagToken = srv.URL, "tok"
+	t.Cleanup(func() { flagServer, flagToken = "", "" })
+
+	out := captureStdout(t, func() {
+		if err := runDetails(context.Background(), video, core.SceneDetails{Title: "T"}); err != nil {
+			t.Fatalf("runDetails: %v", err)
+		}
+	})
+	if len(got.Entries) != 1 || got.Entries[0].OSHash == "" || got.Entries[0].Title != "T" {
+		t.Errorf("server saw %+v", got)
+	}
+	if !strings.Contains(out, "recorded scene details for release 4") {
+		t.Errorf("stdout = %q", out)
+	}
+}
+
+func TestRunDetails_OldNodeAndNoToken(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"t","features":["lookup"]}`))
+	}))
+	t.Cleanup(srv.Close)
+	video, _ := revisionFiles(t)
+	flagServer = srv.URL
+	t.Cleanup(func() { flagServer, flagToken = "", "" })
+
+	flagToken = ""
+	if err := runDetails(context.Background(), video, core.SceneDetails{Title: "T"}); err == nil || !strings.Contains(err.Error(), "token") {
+		t.Errorf("err = %v, want the no-token message", err)
+	}
+	flagToken = "tok"
+	if err := runDetails(context.Background(), video, core.SceneDetails{Title: "T"}); err == nil || err.Error() != core.DetailsUnsupportedMessage {
+		t.Errorf("err = %v, want unsupported", err)
+	}
+	if err := runDetails(context.Background(), video, core.SceneDetails{}); err == nil || err.Error() != core.DetailsEmptyMessage {
+		t.Errorf("err = %v, want empty", err)
+	}
+}

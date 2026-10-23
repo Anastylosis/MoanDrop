@@ -122,7 +122,7 @@ func TestStartVideo_CandidatesRenderEvidenceKindAndBadge(t *testing.T) {
 
 	video := tempVideo(t, "scene.mp4", 0xBB)
 	release := client.Release{
-		ID: 100, OSHash: fileOSHash(t, video), DurationMs: 600_000,
+		ID: 100, Title: "scene", OSHash: fileOSHash(t, video), DurationMs: 600_000,
 		Tracks: []client.TrackSummary{
 			{ID: 1, Lang: "en", Kind: "sdh", Downloads: 5, Up: 2},
 			{ID: 2, Lang: "de", Generated: true},
@@ -174,7 +174,7 @@ func TestDownloadTrack_ClickWritesSidecar(t *testing.T) {
 
 	rows := BuildCandidateRows([]core.Candidate{{
 		Confidence: core.ConfidenceExact,
-		Release:    client.Release{ID: 1, Tracks: []client.TrackSummary{{ID: 5, Lang: "en"}}},
+		Release:    client.Release{ID: 1, Title: "scene", Tracks: []client.TrackSummary{{ID: 5, Lang: "en"}}},
 	}})
 	u.renderCandidates(rows)
 
@@ -208,7 +208,7 @@ func TestDownloadTrack_SecondDownloadPopsOverwriteConfirm(t *testing.T) {
 
 	rows := BuildCandidateRows([]core.Candidate{{
 		Confidence: core.ConfidenceExact,
-		Release:    client.Release{ID: 1, Tracks: []client.TrackSummary{{ID: 5, Lang: "en"}}},
+		Release:    client.Release{ID: 1, Title: "scene", Tracks: []client.TrackSummary{{ID: 5, Lang: "en"}}},
 	}})
 	u.renderCandidates(rows)
 
@@ -255,7 +255,7 @@ func TestDownloadTrack_ConfirmedOverwriteReplaces(t *testing.T) {
 
 	rows := BuildCandidateRows([]core.Candidate{{
 		Confidence: core.ConfidenceExact,
-		Release:    client.Release{ID: 1, Tracks: []client.TrackSummary{{ID: 5, Lang: "en"}}},
+		Release:    client.Release{ID: 1, Title: "scene", Tracks: []client.TrackSummary{{ID: 5, Lang: "en"}}},
 	}})
 	u.renderCandidates(rows)
 
@@ -294,7 +294,7 @@ func TestDownloadTrack_ServerErrorShowsError(t *testing.T) {
 
 	rows := BuildCandidateRows([]core.Candidate{{
 		Confidence: core.ConfidenceExact,
-		Release:    client.Release{ID: 1, Tracks: []client.TrackSummary{{ID: 5, Lang: "en"}}},
+		Release:    client.Release{ID: 1, Title: "scene", Tracks: []client.TrackSummary{{ID: 5, Lang: "en"}}},
 	}})
 	u.renderCandidates(rows)
 
@@ -338,7 +338,7 @@ func TestStartVideo_MatchGenInvalidation(t *testing.T) {
 
 	videoA := tempVideo(t, "a.mp4", 0x11)
 	videoB := tempVideo(t, "b.mp4", 0x22)
-	releaseB := client.Release{ID: 200, OSHash: fileOSHash(t, videoB), Tracks: []client.TrackSummary{{ID: 9, Lang: "en"}}}
+	releaseB := client.Release{ID: 200, Title: "scene", OSHash: fileOSHash(t, videoB), Tracks: []client.TrackSummary{{ID: 9, Lang: "en"}}}
 
 	received := make(chan int, 4)
 	releaseA := make(chan struct{})
@@ -796,7 +796,7 @@ func revisionsServer(t *testing.T, features []string, result client.UploadResult
 func TestTrackRow_ReviseButtonNeedsTokenAndRevShowsAfterOne(t *testing.T) {
 	u := newTestApp(test.NewApp())
 	rows := []CandidateRow{{
-		Release:    client.Release{ID: 1},
+		Release:    client.Release{ID: 1, Title: "scene"},
 		Confidence: core.ConfidenceExact,
 		Tracks:     []TrackRow{{Track: client.TrackSummary{ID: 1, Lang: "en", Revision: 3}}},
 	}}

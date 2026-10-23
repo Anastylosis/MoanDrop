@@ -21,6 +21,7 @@ func pushCmd() *cobra.Command {
 		authorship string
 		generated  bool
 		revises    int64
+		scene      core.SceneDetails
 	)
 	cmd := &cobra.Command{
 		Use:   "push <video> <subtitle>",
@@ -31,7 +32,7 @@ everyone else with the same video can find it. Needs an account token
 (--token or MOANDROP_TOKEN); create an account at <server>/register and\ncopy the token from <server>/me.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPush(cmd.Context(), args[0], args[1], lang, noPhash, core.PushOptions{Authorship: authorship, Generated: generated, Supersedes: revises})
+			return runPush(cmd.Context(), args[0], args[1], lang, noPhash, core.PushOptions{Authorship: authorship, Generated: generated, Supersedes: revises, SceneDetails: scene})
 		},
 	}
 	cmd.Flags().StringVar(&lang, "lang", "", "subtitle language (default: read from a <stem>.<lang>.srt filename)")
@@ -39,6 +40,7 @@ everyone else with the same video can find it. Needs an account token
 	cmd.Flags().StringVar(&authorship, "authorship", "", "who made it: "+strings.Join(authorshipHelp(), "; ")+" (default: say nothing — the server assumes shared)")
 	cmd.Flags().BoolVar(&generated, "generated", false, "declare "+core.GeneratedDeclarationLabel)
 	cmd.Flags().Int64Var(&revises, "revises", 0, "upload as a corrected version of this track id (must be the latest version, same video and language)")
+	addSceneFlags(cmd, &scene)
 	return cmd
 }
 
@@ -54,6 +56,9 @@ func runPush(ctx context.Context, videoPath, subPath, lang string, noPhash bool,
 	// Before anything slow: a typo here must not cost a fingerprint.
 	if err := core.ValidateAuthorship(opts.Authorship); err != nil {
 		return err
+	}
+	if err := opts.Validate(); err != nil {
+		return fmt.Errorf("--date: %w", err)
 	}
 	if opts.Supersedes < 0 {
 		return fmt.Errorf("--revises %d: want a track id", opts.Supersedes)

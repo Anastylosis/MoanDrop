@@ -56,6 +56,8 @@ type PushOptions struct {
 	// Generated is the voluntary AI-generated declaration.
 	Generated  bool
 	Supersedes int64
+	// SceneDetails ride the same request (feature "metadata"); zero fields are omitted.
+	SceneDetails
 }
 
 // PushResult mirrors the server's upload outcome, worded once here so the
@@ -150,6 +152,10 @@ func PushSidecar(ctx context.Context, c *client.Client, videoPath, lang string, 
 	if opts.Supersedes < 0 {
 		return PushResult{}, fmt.Errorf("invalid track id %d to revise", opts.Supersedes)
 	}
+	opts.SceneDetails = opts.Trim()
+	if err := opts.Validate(); err != nil {
+		return PushResult{}, err
+	}
 
 	fp, err := FingerprintFile(ctx, ffmpegPath, ffprobePath, videoPath)
 	if err != nil {
@@ -167,6 +173,10 @@ func PushSidecar(ctx context.Context, c *client.Client, videoPath, lang string, 
 		Authorship: opts.Authorship,
 		Generated:  opts.Generated,
 		Supersedes: opts.Supersedes,
+		Title:      opts.Title,
+		Date:       opts.Date,
+		Studio:     opts.Studio,
+		Performers: opts.Performers,
 	}
 	if fp.PHash != nil {
 		req.PHash = fp.PHash.String()

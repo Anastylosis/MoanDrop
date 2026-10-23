@@ -114,6 +114,7 @@ func renderOneTrack(t *testing.T, up, down int) (u *appUI, doneCh chan struct{},
 		Confidence: core.ConfidenceExact,
 		Release: client.Release{
 			ID:     1,
+			Title:  "scene", // an untitled exact release also probes for the details action
 			Tracks: []client.TrackSummary{{ID: 42, Lang: "en", Up: up, Down: down}},
 		},
 	}})

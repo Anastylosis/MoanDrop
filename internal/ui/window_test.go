@@ -57,7 +57,7 @@ func TestRenderCandidates_ShowsExplainerOnlyWhenGenerated(t *testing.T) {
 	u := newTestApp(test.NewApp())
 
 	rows := []CandidateRow{{
-		Release:    client.Release{ID: 1},
+		Release:    client.Release{ID: 1, Title: "scene"},
 		Confidence: core.ConfidenceExact,
 		Tracks: []TrackRow{
 			{Track: client.TrackSummary{ID: 1, Lang: "en"}},
@@ -209,7 +209,7 @@ func TestPromptSettings_ReopenReflectsSavedQuit(t *testing.T) {
 func TestRenderCandidates_DeclaredBadgeAndCreditReachTheRow(t *testing.T) {
 	u := newTestApp(test.NewApp())
 	u.renderCandidates([]CandidateRow{{
-		Release:    client.Release{ID: 1},
+		Release:    client.Release{ID: 1, Title: "scene"},
 		Confidence: core.ConfidenceExact,
 		Tracks: []TrackRow{
 			{Track: client.TrackSummary{ID: 1, Lang: "en"}, Credit: "by somebody"},

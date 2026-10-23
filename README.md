@@ -138,6 +138,15 @@ label, never remove one detection already set, so nobody can declare
 their way to "human-made". Both need a node that advertises the
 `authorship` feature (moansubs 0.6.0+); an older node ignores them.
 
+`push` can also say what the scene is, so others can find it by name:
+`--title`, `--date YYYY-MM-DD`, `--studio` and `--performer` (repeatable).
+Anything you leave out is simply not sent, and a node that predates scene
+details ignores the rest. For a video the node already knows but has no
+title for, `moandrop details "Some Scene.mp4" --title "..." --studio "..."`
+sends just the details (only the file's exact hash, no subtitle; needs a
+token and a node with the `metadata` feature) and reports whether they
+were recorded.
+
 `push --revises <track-id>` uploads the subtitle as a corrected version of
 that track instead of a new one: it must be the track's latest version, for
 the same video and language. The node declines a copy whose only change is
@@ -248,6 +257,10 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   declaration; the authorship answer is remembered as the next share's
   default, the declaration is per file. Same meanings as `push
   --authorship` and `--generated` above; an older node skips the question.
+  On a node with the `metadata` feature the same dialog has optional title,
+  date, studio and performers (comma-separated) fields, and a byte-identical
+  match whose release has no title yet gets an **Add scene details** button
+  (needs a token).
   A push that matches a subtitle already on the node reports that calmly
   ("already on the node") rather than as an error — the server never
   stores identical bytes twice. With a token set, each track row also has

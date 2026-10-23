@@ -79,6 +79,12 @@ const shareOptionsConfirm = "Share now"
 // declaration. defaultAuthorship preselects the remembered choice. onShare
 // is never called on cancel.
 func askShareOptions(win fyne.Window, subtitlePath, lang, defaultAuthorship string, onShare func(opts core.PushOptions)) {
+	askShareOptionsWithDetails(win, subtitlePath, lang, defaultAuthorship, false, onShare)
+}
+
+// askShareOptionsWithDetails also offers the optional scene fields, for a
+// node that stores them (feature "metadata").
+func askShareOptionsWithDetails(win fyne.Window, subtitlePath, lang, defaultAuthorship string, withDetails bool, onShare func(opts core.PushOptions)) {
 	labels := make([]string, 0, len(core.AuthorshipOrder))
 	for _, a := range core.AuthorshipOrder {
 		labels = append(labels, core.AuthorshipDescriptions[a])
@@ -94,16 +100,32 @@ func askShareOptions(win fyne.Window, subtitlePath, lang, defaultAuthorship stri
 		group,
 		generated,
 	)
+	var form *sceneForm
+	if withDetails {
+		form = newSceneForm()
+		content.Add(widget.NewLabelWithStyle(core.SceneDetailsHeading, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+		for _, o := range form.objects() {
+			content.Add(o)
+		}
+	}
 	d := dialog.NewCustomConfirm(
 		fmt.Sprintf("Share %s (%s)", filepath.Base(subtitlePath), lang),
 		shareOptionsConfirm, "Cancel", content, func(ok bool) {
 			if !ok {
 				return
 			}
-			onShare(core.PushOptions{
+			opts := core.PushOptions{
 				Authorship: authorshipFromLabel(group.Selected),
 				Generated:  generated.Checked,
-			})
+			}
+			if form != nil {
+				opts.SceneDetails = form.details()
+				if err := opts.Validate(); err != nil {
+					showError(win, err)
+					return
+				}
+			}
+			onShare(opts)
 		}, win)
 	d.Show()
 }

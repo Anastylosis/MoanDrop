@@ -42,6 +42,7 @@ type appUI struct {
 	downloadBusy bool
 	fitPrompt    *fyne.Container
 	fitBusy      bool
+	detailsBusy  bool
 	// features caches the once-per-run GET /api/v1/version feature probe
 	// (see withFeature); featuresProbed distinguishes "not yet asked" from
 	// "asked, and the node advertises nothing". UI goroutine only.
@@ -299,6 +300,7 @@ func (u *appUI) setBusy(busy bool) {
 func (u *appUI) renderCandidates(rows []CandidateRow) {
 	u.list.RemoveAll()
 	sawGenerated := false
+	var probes []func()
 	for _, row := range rows {
 		trackRows := container.NewVBox()
 		for _, tr := range row.Tracks {
@@ -326,6 +328,9 @@ func (u *appUI) renderCandidates(rows []CandidateRow) {
 			bl.Wrapping = fyne.TextWrapWord
 			entry.Add(bl)
 		}
+		if row.Confidence == core.ConfidenceExact && row.Release.Title == "" {
+			probes = append(probes, u.offerDetails(entry, row.Release))
+		}
 		entry.Add(widget.NewSeparator())
 		entry.Add(trackRows)
 		u.list.Add(container.NewVBox(entry, widget.NewSeparator()))
@@ -336,6 +341,9 @@ func (u *appUI) renderCandidates(rows []CandidateRow) {
 		u.list.Add(explainer)
 	}
 	u.list.Refresh()
+	for _, probe := range probes {
+		probe()
+	}
 }
 
 func (u *appUI) trackRowWidget(tr TrackRow) fyne.CanvasObject {

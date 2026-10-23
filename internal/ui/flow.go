@@ -285,10 +285,12 @@ func (u *appUI) askAndPush(subPath, lang string, supersedes int64) {
 			return
 		}
 		p := u.app.Preferences()
-		askShareOptions(u.win, subPath, lang, authorship(p), func(opts core.PushOptions) {
-			setAuthorship(p, opts.Authorship)
-			opts.Supersedes = supersedes
-			u.pushSidecar(subPath, lang, opts)
+		u.withFeature(core.FeatureMetadata, func(withDetails bool) {
+			askShareOptionsWithDetails(u.win, subPath, lang, authorship(p), withDetails, func(opts core.PushOptions) {
+				setAuthorship(p, opts.Authorship)
+				opts.Supersedes = supersedes
+				u.pushSidecar(subPath, lang, opts)
+			})
 		})
 	})
 }
