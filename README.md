@@ -271,7 +271,9 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   the window asks whether it lined up. The verdict (never a timing value)
   is reported with your token; enough independent "fits" mark the pairing
   **sync confirmed by users** in everyone's results, and misfit reports
-  reach the moderators. Only offered when the server supports it.
+  reach the moderators. The answer stays on screen with an **undo** that
+withdraws your report and brings the question back. Only offered when the
+server supports it.
 - **No ffmpeg**: a dialog gives the same guidance `match` prints, with a
   button to fall back to exact-file (oshash-only) matching instead of
   installing ffmpeg — the GUI equivalent of `--no-phash`.

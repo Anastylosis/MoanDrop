@@ -2,11 +2,11 @@ package ui
 
 import (
 	"context"
-	"fmt"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/Anastylosis/MoanDrop/internal/core"
 	"github.com/Anastylosis/MoanSubs/client"
 )
 
@@ -30,6 +30,17 @@ func (u *appUI) showFitPrompt(tr TrackRow) {
 	u.fitPrompt.Add(widget.NewLabel("Did the subtitle fit?"))
 	u.fitPrompt.Add(widget.NewButton("fits", func() { u.onFitReport(tr, true) }))
 	u.fitPrompt.Add(widget.NewButton("doesn't fit", func() { u.onFitReport(tr, false) }))
+	u.fitPrompt.Add(widget.NewButton("dismiss", func() { u.hideFitPrompt() }))
+	u.fitPrompt.Show()
+	u.fitPrompt.Refresh()
+}
+
+// showFitAnswered keeps the verdict visible with an undo, so a mis-click on
+// fits/doesn't can be taken back without leaving the window.
+func (u *appUI) showFitAnswered(tr TrackRow, fits bool) {
+	u.fitPrompt.RemoveAll()
+	u.fitPrompt.Add(widget.NewLabel(core.FitAnswerLabel(fits)))
+	u.fitPrompt.Add(widget.NewButton("undo", func() { u.onFitRetract(tr) }))
 	u.fitPrompt.Add(widget.NewButton("dismiss", func() { u.hideFitPrompt() }))
 	u.fitPrompt.Show()
 	u.fitPrompt.Refresh()
@@ -66,8 +77,39 @@ func (u *appUI) onFitReport(tr TrackRow, fits bool) {
 				showError(u.win, err)
 				return
 			}
-			u.hideFitPrompt()
-			u.setStatus(fmt.Sprintf("recorded — %d fits, %d misfits for this pairing", fitsN, misfits))
+			u.showFitAnswered(tr, fits)
+			u.setStatus(core.FitRecordedMessage(fitsN, misfits))
+		})
+	}()
+}
+
+// onFitRetract withdraws this window's own report and returns the prompt to
+// its unanswered state.
+func (u *appUI) onFitRetract(tr TrackRow) {
+	if token(u.app.Preferences()) == "" {
+		u.promptToken(func() { u.onFitRetract(tr) })
+		return
+	}
+	if u.fitBusy {
+		return
+	}
+	u.fitBusy = true
+	gen := u.matchGen
+	server, tok := serverURL(u.app.Preferences()), token(u.app.Preferences())
+	trackID, releaseID := tr.Track.ID, tr.ForRelease
+	go func() {
+		err := client.New(server, tok).RetractFit(context.Background(), trackID, releaseID)
+		fyne.Do(func() {
+			u.fitBusy = false
+			if gen != u.matchGen {
+				return
+			}
+			if err != nil {
+				showError(u.win, err)
+				return
+			}
+			u.showFitPrompt(tr)
+			u.setStatus(core.FitRetractedMessage)
 		})
 	}()
 }
