@@ -155,6 +155,12 @@ timing, or whose text differs too much, and stores it as a separate track
 A node without the `revisions` feature (moansubs 0.6.3+) is refused before
 anything is fingerprinted.
 
+`moandrop trending [--days N] [--limit N]` lists what people have downloaded
+most lately (title, studio, languages, downloads in the window, and the
+release's page on the node), and `moandrop stats` prints the node's totals.
+Both are anonymous, need a node that advertises `trending` / `stats`, and
+take `--json`.
+
 `match` also takes a folder or several paths. Every video inside is
 fingerprinted (`--jobs N` at a time, default 2) and looked up in chunks of
 16 — one request, at most 96 of the node's 300-per-minute lookup tokens, since
@@ -274,6 +280,12 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   reach the moderators. The answer stays on screen with an **undo** that
 withdraws your report and brings the question back. Only offered when the
 server supports it.
+- **What's popular**: Help → What's popular… lists the node's most
+  downloaded releases with a link to each release's page. They are
+  releases on the node, not files on your machine, so there is nothing to
+  download from the list. Help → About this node… shows the server and
+  its totals ("N subtitles for M videos in K languages"). Each is offered
+  only by a node that supports it.
 - **No ffmpeg**: a dialog gives the same guidance `match` prints, with a
   button to fall back to exact-file (oshash-only) matching instead of
   installing ffmpeg — the GUI equivalent of `--no-phash`.

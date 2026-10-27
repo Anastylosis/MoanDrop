@@ -58,7 +58,7 @@ func main() {
 	root.PersistentFlags().StringVar(&flagFFprobe, "ffprobe", "", "path to ffprobe (default: $MOANDROP_FFPROBE, then PATH)")
 	root.PersistentFlags().BoolVar(&flagJSON, "json", false, "machine-readable output")
 
-	root.AddCommand(matchCmd(), pushCmd(), searchCmd(), detailsCmd())
+	root.AddCommand(matchCmd(), pushCmd(), searchCmd(), detailsCmd(), trendingCmd(), statsCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "moandrop:", core.ExplainError(err))

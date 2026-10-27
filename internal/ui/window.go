@@ -136,6 +136,10 @@ func (u *appUI) build() {
 			fyne.NewMenuItem("Open Video...", u.openVideoDialog),
 			fyne.NewMenuItem("Settings...", u.promptSettings),
 		),
+		fyne.NewMenu("Help",
+			fyne.NewMenuItem("What's popular...", u.showPopular),
+			fyne.NewMenuItem("About this node...", u.showNodeTotals),
+		),
 	))
 }
 
