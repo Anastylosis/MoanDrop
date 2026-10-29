@@ -27,6 +27,16 @@ const (
 	NoPhashOnlyHint = "(searched by exact file hash only — without --no-phash, other encodes of the same video would also be found)"
 )
 
+// NoMatchCoverage sets expectations for a first drop on a library the
+// community hasn't covered, so a miss doesn't read as a broken app.
+const NoMatchCoverage = "The catalogue is community-built and mostly adult video; mainstream films and shows are rarely in it."
+
+// NoMatchShareCLI and NoMatchShareGUI invite the person to fill the gap.
+const (
+	NoMatchShareCLI = "Have a subtitle that fits this file? Share it: moandrop push <video> <subtitle>"
+	NoMatchShareGUI = "Have a subtitle that fits this file? Drop it on the window to share it."
+)
+
 // GeneratedExplainer is the AI-track disclaimer, shown once under a result
 // list (CLI) or as a badge tooltip (GUI).
 const GeneratedExplainer = "AI = machine-transcribed, unreviewed. Human-made tracks are listed first;\nan AI track is usually accurate but may mishear names and slang.\nAI (declared) = the uploader said it was AI-made; nothing confirms that, unlike a detected one."

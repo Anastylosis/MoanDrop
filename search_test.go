@@ -95,7 +95,7 @@ func TestPrintSearchHints_OnlyWithFeatureAndNeverSearches(t *testing.T) {
 		{Path: "/v/ok.mp4", Status: core.BatchWritten},
 	}}
 	out := captureStdout(t, func() {
-		printSearchHints(context.Background(), client.New(srv.URL, ""), sum, []string{"en", "de"})
+		printSearchHints(context.Background(), client.New(srv.URL, ""), sum.Unmatched(), []string{"en", "de"})
 	})
 	if want := core.SearchHint("/v/Some.Scene.mp4", "en") + "\n"; out != want {
 		t.Errorf("out = %q, want %q", out, want)
@@ -109,7 +109,7 @@ func TestPrintSearchHints_OnlyWithFeatureAndNeverSearches(t *testing.T) {
 	}))
 	t.Cleanup(bare.Close)
 	out = captureStdout(t, func() {
-		printSearchHints(context.Background(), client.New(bare.URL, ""), sum, []string{"en"})
+		printSearchHints(context.Background(), client.New(bare.URL, ""), sum.Unmatched(), []string{"en"})
 	})
 	if out != "" {
 		t.Errorf("node without search printed %q", out)

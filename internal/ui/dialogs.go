@@ -44,6 +44,7 @@ func showNoMatch(win fyne.Window, hadPHash bool) {
 	if !hadPHash {
 		msg += "\n" + core.NoPhashOnlyHint
 	}
+	msg += "\n\n" + core.NoMatchCoverage + "\n" + core.NoMatchShareGUI
 	dialog.ShowInformation("No match", msg, win)
 }
 

@@ -80,6 +80,9 @@ func TestShowNoMatch_WithPHashOmitsHint(t *testing.T) {
 	if !strings.Contains(all, core.NoMatchMessage) {
 		t.Errorf("dialog text = %q, want core.NoMatchMessage", all)
 	}
+	if !strings.Contains(all, core.NoMatchCoverage) || !strings.Contains(all, core.NoMatchShareGUI) {
+		t.Errorf("dialog text = %q, want the coverage note and the share invitation", all)
+	}
 	if strings.Contains(all, core.NoPhashOnlyHint) {
 		t.Errorf("dialog text = %q, a phash search must not show the oshash-only hint", all)
 	}
