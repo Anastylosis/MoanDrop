@@ -6,8 +6,12 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/widget"
 
 	"github.com/Anastylosis/MoanSubs/client"
 
@@ -107,5 +111,58 @@ func TestSearch_RateLimitShowsServerMessage(t *testing.T) {
 	}
 	if u.searchBusy {
 		t.Error("searchBusy stuck after an error")
+	}
+}
+
+func findSelect(o fyne.CanvasObject) *widget.Select {
+	var found *widget.Select
+	walkCanvas(o, func(c fyne.CanvasObject) {
+		if s, ok := c.(*widget.Select); ok && found == nil {
+			found = s
+		}
+	})
+	return found
+}
+
+func TestSearch_LanguageDefaultsToPreferenceAndResearchesOnChange(t *testing.T) {
+	noFFmpegEnv(t)
+	u, doneCh := newFlowApp(t)
+	var mu sync.Mutex
+	var langs []string
+	var searches atomic.Int32
+	inner := searchHandler([]string{core.FeatureSearch}, &searches, 0)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/search" {
+			mu.Lock()
+			langs = append(langs, r.URL.Query().Get("lang"))
+			mu.Unlock()
+		}
+		inner(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	setServerURL(u.app.Preferences(), srv.URL)
+	setBatchLangs(u.app.Preferences(), "de,en")
+	u.startVideo(tempVideo(t, "Some.Scene.1080p.mp4", 0xAB))
+	waitDo(t, doneCh)
+	tapButtonOn(t, u.win, "Match without ffmpeg")
+	waitDo(t, doneCh)
+	waitDo(t, doneCh)
+	waitDo(t, doneCh)
+
+	sel := findSelect(u.list)
+	if sel == nil || sel.Selected != "de" {
+		t.Fatalf("select = %+v, want the preferred language", sel)
+	}
+	tapButtonOn(t, u.win, "Search")
+	waitDo(t, doneCh)
+	// SetSelected refreshes after OnChanged, racing the search goroutine in the test driver.
+	sel.Selected = core.SearchAnyLanguage
+	sel.OnChanged(sel.Selected)
+	waitDo(t, doneCh)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(langs) != 2 || langs[0] != "de" || langs[1] != "" {
+		t.Errorf("lang params = %q, want [de \"\"]", langs)
 	}
 }

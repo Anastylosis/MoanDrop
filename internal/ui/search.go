@@ -29,17 +29,29 @@ func (u *appUI) showSearchPanel(videoPath string) {
 	entry := widget.NewEntry()
 	entry.SetText(core.CleanStem(videoPath))
 
-	run := func() { u.runSearch(entry.Text, results) }
+	preferred := ""
+	if langs, err := parseLangs(batchLangs(u.app.Preferences())); err == nil {
+		preferred = langs[0]
+	}
+	lang := widget.NewSelect(core.SearchLangChoices(preferred), nil)
+	if preferred != "" {
+		lang.Selected = preferred
+	} else {
+		lang.Selected = core.SearchAnyLanguage
+	}
+
+	run := func() { u.runSearch(entry.Text, core.SearchLangValue(lang.Selected), results) }
 	entry.OnSubmitted = func(string) { run() }
+	lang.OnChanged = func(string) { run() }
 	button := widget.NewButtonWithIcon("Search", theme.SearchIcon(), run)
 
 	prompt := widget.NewLabel(core.SearchPrompt)
 	prompt.Wrapping = fyne.TextWrapWord
-	u.list.Add(container.NewVBox(prompt, container.NewBorder(nil, nil, nil, button, entry), results))
+	u.list.Add(container.NewVBox(prompt, container.NewBorder(nil, nil, lang, button, entry), results))
 	u.list.Refresh()
 }
 
-func (u *appUI) runSearch(query string, results *fyne.Container) {
+func (u *appUI) runSearch(query, lang string, results *fyne.Container) {
 	if u.searchBusy || strings.TrimSpace(query) == "" {
 		return
 	}
@@ -49,7 +61,7 @@ func (u *appUI) runSearch(query string, results *fyne.Container) {
 	u.setStatus("searching...")
 	c := client.New(serverURL(u.app.Preferences()), "")
 	go func() {
-		out, err := core.Search(context.Background(), c, query, "", u.busyNotice(gen))
+		out, err := core.Search(context.Background(), c, query, lang, u.busyNotice(gen))
 		fyne.Do(func() {
 			u.searchBusy = false
 			if gen != u.matchGen {

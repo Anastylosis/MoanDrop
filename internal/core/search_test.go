@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -109,5 +110,18 @@ func TestChooseSearchTrack(t *testing.T) {
 		if err != nil || got.ID != c.want {
 			t.Errorf("id=%d lang=%q got %v err %v", c.id, c.lang, got.ID, err)
 		}
+	}
+}
+
+func TestSearchLangChoices(t *testing.T) {
+	got := SearchLangChoices("sk")
+	if got[0] != SearchAnyLanguage || got[1] != "sk" {
+		t.Errorf("choices = %v, want any then the extra preferred", got)
+	}
+	if again := SearchLangChoices("en"); slices.Contains(again[1:2], "sk") || len(again) != len(SearchLanguages)+1 {
+		t.Errorf("a listed preferred must not be duplicated: %v", again)
+	}
+	if SearchLangValue(SearchAnyLanguage) != "" || SearchLangValue("de") != "de" {
+		t.Error("SearchLangValue mapping wrong")
 	}
 }

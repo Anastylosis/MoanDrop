@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -24,7 +25,28 @@ const (
 	NoSearchResultsMessage  = "nothing found for that search"
 	SearchUnsupportedNotice = "this node does not support searching yet"
 	SearchPrompt            = "Search the catalogue by title, studio or performer:"
+	SearchAnyLanguage       = "Any language"
 )
+
+// SearchLanguages are the window's language choices; a preferred language outside them is added.
+var SearchLanguages = []string{"en", "es", "fr", "de", "it", "pt", "nl", "pl", "ru", "sv", "ja", "ko", "zh"}
+
+// SearchLangChoices is the "any" choice followed by SearchLanguages, with preferred inserted when missing.
+func SearchLangChoices(preferred string) []string {
+	out := []string{SearchAnyLanguage}
+	if preferred != "" && !slices.Contains(SearchLanguages, preferred) {
+		out = append(out, preferred)
+	}
+	return append(out, SearchLanguages...)
+}
+
+// SearchLangValue maps a choice to the lang the server filters on.
+func SearchLangValue(choice string) string {
+	if choice == SearchAnyLanguage {
+		return ""
+	}
+	return choice
+}
 
 // SearchHit is a release with the tracks worth offering from it.
 type SearchHit struct {
