@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,6 +47,15 @@ func SearchLangValue(choice string) string {
 		return ""
 	}
 	return choice
+}
+
+// SearchHint is the command that searches for an unmatched video and writes the track beside it.
+func SearchHint(videoPath, lang string) string {
+	cmd := fmt.Sprintf("moandrop search %s --write %s", strconv.Quote(CleanStem(videoPath)), strconv.Quote(videoPath))
+	if lang != "" {
+		cmd += " --lang " + lang
+	}
+	return "no match: " + cmd
 }
 
 // SearchHit is a release with the tracks worth offering from it.

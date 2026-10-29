@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"fyne.io/fyne/v2/test"
@@ -75,5 +76,45 @@ func TestStartFolder_DialogAsksLanguage(t *testing.T) {
 	u.startFolder([]string{t.TempDir()})
 	if findButton(topOverlay(u.win), "Start") == nil {
 		t.Fatal("folder dialog has no Start button")
+	}
+}
+
+func TestRunFolder_NoMatchRowSearchesAndDownloadsToThatFile(t *testing.T) {
+	u, doneCh := newFlowApp(t)
+	miss := tempVideo(t, "Miss.Scene.mp4", 0xBB)
+	other := tempVideo(t, "other.mp4", 0xCC)
+	var searches atomic.Int32
+	srv := httptest.NewServer(searchHandler([]string{core.FeatureSearch}, &searches, 0))
+	t.Cleanup(srv.Close)
+	setServerURL(u.app.Preferences(), srv.URL)
+	u.videoPath = other
+
+	u.matchGen++
+	u.runFolder(context.Background(), u.matchGen, []string{miss}, core.BatchOptions{
+		Langs: []string{"en"}, Write: true,
+	})
+	waitDo(t, doneCh) // row
+	waitDo(t, doneCh) // summary
+	waitDo(t, doneCh) // feature probe -> search buttons
+
+	tapButtonOn(t, u.win, "Search…")
+	if e := findEntry(u.list); e == nil || e.Text != "Miss Scene" {
+		t.Fatalf("entry = %+v, want the row's cleaned stem", e)
+	}
+	tapButtonOn(t, u.win, "Search")
+	waitDo(t, doneCh)
+	u.downloadBusy = true
+	tapButtonOn(t, u.win, "Download")
+	if _, err := os.Stat(core.SidecarPath(miss, core.CaptionLang{Base: "en"})); err == nil {
+		t.Fatal("download ran while downloadBusy")
+	}
+	u.downloadBusy = false
+	tapButtonOn(t, u.win, "Download")
+	waitDo(t, doneCh)
+	if _, err := os.Stat(core.SidecarPath(miss, core.CaptionLang{Base: "en"})); err != nil {
+		t.Errorf("sidecar not beside the row's file: %v", err)
+	}
+	if _, err := os.Stat(core.SidecarPath(other, core.CaptionLang{Base: "en"})); err == nil {
+		t.Error("sidecar landed beside the window's current video")
 	}
 }

@@ -78,3 +78,40 @@ func TestRunSearch_TrackNeedsWrite(t *testing.T) {
 		t.Error("want an error")
 	}
 }
+
+func TestPrintSearchHints_OnlyWithFeatureAndNeverSearches(t *testing.T) {
+	var searches int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/version":
+			_ = json.NewEncoder(w).Encode(map[string]any{"features": []string{core.FeatureSearch}})
+		case "/api/v1/search":
+			searches++
+		}
+	}))
+	t.Cleanup(srv.Close)
+	sum := core.BatchSummary{Results: []core.BatchResult{
+		{Path: "/v/Some.Scene.mp4", Status: core.BatchNoMatch},
+		{Path: "/v/ok.mp4", Status: core.BatchWritten},
+	}}
+	out := captureStdout(t, func() {
+		printSearchHints(context.Background(), client.New(srv.URL, ""), sum, []string{"en", "de"})
+	})
+	if want := core.SearchHint("/v/Some.Scene.mp4", "en") + "\n"; out != want {
+		t.Errorf("out = %q, want %q", out, want)
+	}
+	if searches != 0 {
+		t.Error("hints must not search")
+	}
+
+	bare := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"features": []string{}})
+	}))
+	t.Cleanup(bare.Close)
+	out = captureStdout(t, func() {
+		printSearchHints(context.Background(), client.New(bare.URL, ""), sum, []string{"en"})
+	})
+	if out != "" {
+		t.Errorf("node without search printed %q", out)
+	}
+}

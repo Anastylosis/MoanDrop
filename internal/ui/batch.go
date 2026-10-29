@@ -9,11 +9,18 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/Anastylosis/MoanDrop/internal/core"
 	"github.com/Anastylosis/MoanSubs/client"
 )
+
+// batchMiss is a no-match row that can grow a search panel once the run ends.
+type batchMiss struct {
+	path string
+	row  *fyne.Container
+}
 
 func droppedFolder(paths []string) bool {
 	for _, p := range paths {
@@ -135,6 +142,7 @@ func (u *appUI) runFolder(ctx context.Context, gen int, videos []string, opts co
 	c := client.New(serverURL(u.app.Preferences()), "")
 	total := len(videos)
 	done := 0
+	u.batchMisses = nil
 	u.setStatus(fmt.Sprintf("0 of %d videos — %s", total, core.FingerprintingMessage))
 	u.batchBar.Max = float64(total)
 	u.batchBar.SetValue(0)
@@ -148,7 +156,11 @@ func (u *appUI) runFolder(ctx context.Context, gen int, videos []string, opts co
 			done++
 			line := widget.NewLabel(r.Line())
 			line.Wrapping = fyne.TextWrapWord
-			u.list.Add(line)
+			row := container.NewVBox(line)
+			if r.Unmatched() {
+				u.batchMisses = append(u.batchMisses, batchMiss{r.Path, row})
+			}
+			u.list.Add(row)
 			u.list.Refresh()
 			u.scroll.ScrollToBottom()
 			u.batchBar.SetValue(float64(done))
@@ -177,5 +189,30 @@ func (u *appUI) endBatch(gen int, err error, sum *core.BatchSummary) {
 	}
 	if sum != nil {
 		u.setStatus(sum.Line(true))
+		u.offerBatchSearch()
 	}
+}
+
+// offerBatchSearch waits for the run to end so a search never overlaps its status and busy state.
+func (u *appUI) offerBatchSearch() {
+	misses := u.batchMisses
+	u.batchMisses = nil
+	if len(misses) == 0 {
+		return
+	}
+	u.withFeature(core.FeatureSearch, func(supported bool) {
+		if !supported {
+			return
+		}
+		for _, m := range misses {
+			var btn *widget.Button
+			btn = widget.NewButtonWithIcon("Search…", theme.SearchIcon(), func() {
+				m.row.Remove(btn)
+				m.row.Add(u.searchPanel(m.path))
+				m.row.Refresh()
+			})
+			m.row.Add(btn)
+			m.row.Refresh()
+		}
+	})
 }

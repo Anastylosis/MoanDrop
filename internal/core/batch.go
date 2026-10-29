@@ -48,6 +48,9 @@ func (r BatchResult) Line() string {
 	return s
 }
 
+// Unmatched is true when the lookup found nothing, as opposed to a release lacking the wanted language.
+func (r BatchResult) Unmatched() bool { return r.Status == BatchNoMatch && r.ReleaseID == 0 }
+
 // BatchSummary tallies a batch.
 type BatchSummary struct {
 	Results []BatchResult
@@ -65,6 +68,17 @@ func (s BatchSummary) Line(write bool) string {
 		parts = append(parts, fmt.Sprintf("%d %s", s.Counts[st], st))
 	}
 	return fmt.Sprintf("%d videos: %s", len(s.Results), strings.Join(parts, ", "))
+}
+
+// Unmatched lists the videos that matched no release.
+func (s BatchSummary) Unmatched() []string {
+	var out []string
+	for _, r := range s.Results {
+		if r.Unmatched() {
+			out = append(out, r.Path)
+		}
+	}
+	return out
 }
 
 // ExitCode is the process exit code.

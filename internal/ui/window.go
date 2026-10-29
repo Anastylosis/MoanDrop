@@ -60,6 +60,7 @@ type appUI struct {
 	voteBusy bool
 
 	batchCancel context.CancelFunc
+	batchMisses []batchMiss
 }
 
 // build wires up the window's permanent chrome. Called once, after the age

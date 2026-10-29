@@ -125,3 +125,14 @@ func TestSearchLangChoices(t *testing.T) {
 		t.Error("SearchLangValue mapping wrong")
 	}
 }
+
+func TestSearchHint(t *testing.T) {
+	got := SearchHint("/v/Some.Scene.1080p.mp4", "en")
+	want := `no match: moandrop search "Some Scene" --write "/v/Some.Scene.1080p.mp4" --lang en`
+	if got != want {
+		t.Errorf("hint = %q, want %q", got, want)
+	}
+	if strings.Contains(SearchHint("x.mp4", ""), "--lang") {
+		t.Error("no language, no --lang")
+	}
+}

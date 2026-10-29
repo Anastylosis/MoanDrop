@@ -171,7 +171,11 @@ already have a sidecar for `--lang` are skipped without fingerprinting;
 written: a single exact or high-confidence release. Offers, and ties
 between equally good releases, are reported as *ambiguous* and left for
 you to pick with `match` on that file. Ctrl-C stops cleanly, and `--json`
-prints one object per video. `--exact` is single-file only.
+prints one object per video. `--exact` is single-file only. When videos
+matched no release and the node advertises `search`, a folder run ends with
+one line per such video naming the `moandrop search ... --write` command to
+try; it never searches for you, since a hit is only a guess and searches are
+rate-limited per IP.
 
 `search` is for a video that matched nothing by fingerprint (the node must
 advertise the `search` feature). It lists releases whose title, studio or
@@ -206,7 +210,10 @@ form a file manager's "Open with" runs, `moandrop "%f"`).
   inside, listing one line per video as it resolves, with a Stop button and
   a summary at the end. It follows the same rules as `match --write` on a
   folder: videos that already have a subtitle are skipped, and only
-  confident matches are written.
+  confident matches are written. When the run ends, each "no match" line
+  gets a **Search…** button (on nodes that support search) that opens the
+  search box below it; a track downloaded there is written beside that
+  video.
 - **Nothing matched**: when the node supports search, a search box appears
   under the "no match" message, prefilled with the file name tidied up
   (separators and quality tags dropped) and a language choice (your

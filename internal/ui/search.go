@@ -20,11 +20,13 @@ func (u *appUI) offerSearch(videoPath string) {
 		if !supported {
 			return
 		}
-		u.showSearchPanel(videoPath)
+		u.list.Add(u.searchPanel(videoPath))
+		u.list.Refresh()
 	})
 }
 
-func (u *appUI) showSearchPanel(videoPath string) {
+// searchPanel is the search box for videoPath; downloads land beside that file, not the window's current video.
+func (u *appUI) searchPanel(videoPath string) fyne.CanvasObject {
 	results := container.NewVBox()
 	entry := widget.NewEntry()
 	entry.SetText(core.CleanStem(videoPath))
@@ -40,18 +42,17 @@ func (u *appUI) showSearchPanel(videoPath string) {
 		lang.Selected = core.SearchAnyLanguage
 	}
 
-	run := func() { u.runSearch(entry.Text, core.SearchLangValue(lang.Selected), results) }
+	run := func() { u.runSearch(videoPath, entry.Text, core.SearchLangValue(lang.Selected), results) }
 	entry.OnSubmitted = func(string) { run() }
 	lang.OnChanged = func(string) { run() }
 	button := widget.NewButtonWithIcon("Search", theme.SearchIcon(), run)
 
 	prompt := widget.NewLabel(core.SearchPrompt)
 	prompt.Wrapping = fyne.TextWrapWord
-	u.list.Add(container.NewVBox(prompt, container.NewBorder(nil, nil, lang, button, entry), results))
-	u.list.Refresh()
+	return container.NewVBox(prompt, container.NewBorder(nil, nil, lang, button, entry), results)
 }
 
-func (u *appUI) runSearch(query, lang string, results *fyne.Container) {
+func (u *appUI) runSearch(videoPath, query, lang string, results *fyne.Container) {
 	if u.searchBusy || strings.TrimSpace(query) == "" {
 		return
 	}
@@ -73,12 +74,12 @@ func (u *appUI) runSearch(query, lang string, results *fyne.Container) {
 				showError(u.win, err)
 				return
 			}
-			u.renderSearchResults(results, out)
+			u.renderSearchResults(results, videoPath, out)
 		})
 	}()
 }
 
-func (u *appUI) renderSearchResults(into *fyne.Container, out core.SearchOutcome) {
+func (u *appUI) renderSearchResults(into *fyne.Container, videoPath string, out core.SearchOutcome) {
 	into.RemoveAll()
 	if len(out.Hits) == 0 {
 		into.Add(widget.NewLabel(core.NoSearchResultsMessage))
@@ -89,7 +90,7 @@ func (u *appUI) renderSearchResults(into *fyne.Container, out core.SearchOutcome
 	for _, row := range BuildSearchRows(out.Hits) {
 		trackRows := container.NewVBox()
 		for _, tr := range row.Tracks {
-			trackRows.Add(u.searchTrackRowWidget(tr))
+			trackRows.Add(u.searchTrackRowWidget(videoPath, tr))
 			if tr.Badge != "" {
 				sawGenerated = true
 			}
@@ -129,7 +130,7 @@ func truncatedNote(out core.SearchOutcome) string {
 	return ""
 }
 
-func (u *appUI) searchTrackRowWidget(tr TrackRow) fyne.CanvasObject {
+func (u *appUI) searchTrackRowWidget(videoPath string, tr TrackRow) fyne.CanvasObject {
 	head := container.NewHBox(widget.NewLabelWithStyle(tr.Track.Lang, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
 	if k := tr.Track.Kind; k != "" && k != "default" {
 		head.Add(newChip(k, false))
@@ -143,7 +144,7 @@ func (u *appUI) searchTrackRowWidget(tr TrackRow) fyne.CanvasObject {
 	}
 	sub.Add(monoLabel(fmt.Sprintf("%d downloads", tr.Track.Downloads)))
 	sub.Add(monoLabel(voteCountsText(tr.Track.Up, tr.Track.Down)))
-	dl := widget.NewButtonWithIcon("Download", theme.DownloadIcon(), func() { u.downloadTrack(tr) })
+	dl := widget.NewButtonWithIcon("Download", theme.DownloadIcon(), func() { u.downloadTrackTo(videoPath, tr) })
 	dl.Importance = widget.HighImportance
 	return container.NewBorder(nil, nil, container.NewVBox(head, sub), dl)
 }

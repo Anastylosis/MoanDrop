@@ -252,3 +252,14 @@ func TestConfidentMatch(t *testing.T) {
 		}
 	}
 }
+
+func TestBatch_UnmatchedSeparatesNoReleaseFromNoLanguage(t *testing.T) {
+	sum := BatchSummary{Results: []BatchResult{
+		{Path: "a.mp4", Status: BatchNoMatch},
+		{Path: "b.mp4", Status: BatchNoMatch, ReleaseID: 4, Detail: "release 4 has no track in en"},
+		{Path: "c.mp4", Status: BatchAmbiguous},
+	}}
+	if got := sum.Unmatched(); len(got) != 1 || got[0] != "a.mp4" {
+		t.Errorf("Unmatched = %v, want only a.mp4", got)
+	}
+}

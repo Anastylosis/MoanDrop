@@ -67,6 +67,24 @@ rate-limited), 2 if no video could be resolved.`,
 	return cmd
 }
 
+// printSearchHints names the search to run per unmatched video; it never searches itself (rate limits, and a hit is only a guess).
+func printSearchHints(ctx context.Context, c *client.Client, sum core.BatchSummary, langs []string) {
+	missed := sum.Unmatched()
+	if len(missed) == 0 {
+		return
+	}
+	if ok, err := core.HasFeature(ctx, c, core.FeatureSearch); err != nil || !ok {
+		return
+	}
+	lang := ""
+	if len(langs) > 0 {
+		lang = langs[0]
+	}
+	for _, p := range missed {
+		fmt.Println(core.SearchHint(p, lang))
+	}
+}
+
 func printBusy(wait time.Duration) {
 	fmt.Fprintln(os.Stderr, core.ServerBusyMessage(wait))
 }
@@ -128,6 +146,7 @@ func runBatch(ctx context.Context, args, langs []string, write, overwrite, allLa
 		}
 	} else {
 		fmt.Println(sum.Line(write))
+		printSearchHints(ctx, client.New(flagServer, flagToken), sum, langs)
 	}
 	if code := sum.ExitCode(); code != 0 {
 		os.Exit(code)

@@ -156,6 +156,11 @@ func (u *appUI) busyNotice(gen int) func(time.Duration) {
 // a blocking download can't freeze the window. It never os.Stats first —
 // core.WriteSidecar's own existence check is the sole, race-free source of truth.
 func (u *appUI) downloadTrack(tr TrackRow) {
+	u.downloadTrackTo(u.videoPath, tr)
+}
+
+// downloadTrackTo is downloadTrack for an explicit video, e.g. a folder run's unmatched row.
+func (u *appUI) downloadTrackTo(videoPath string, tr TrackRow) {
 	// downloadBusy serializes downloads (touched only on the UI goroutine):
 	// without it two quick clicks can both pass WriteSidecar's existence
 	// check, and the second silently replaces the first with no confirm dialog.
@@ -165,7 +170,7 @@ func (u *appUI) downloadTrack(tr TrackRow) {
 	u.downloadBusy = true
 	u.setStatus("downloading...")
 	c := client.New(serverURL(u.app.Preferences()), "")
-	u.attemptDownload(c, u.videoPath, tr, false)
+	u.attemptDownload(c, videoPath, tr, false)
 }
 
 func (u *appUI) attemptDownload(c *client.Client, videoPath string, tr TrackRow, overwrite bool) {
