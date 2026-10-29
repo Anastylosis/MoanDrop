@@ -54,6 +54,42 @@ func TestSearch_RanksTracksAndDropsEmptyReleases(t *testing.T) {
 	}
 }
 
+func TestSearch_DropsResultsSharingTooFewWords(t *testing.T) {
+	var qs []string
+	tr := []client.TrackSummary{{ID: 1, Lang: "en"}}
+	srv := searchServer(t, client.SearchResult{Releases: []client.Release{
+		{ID: 1, Title: "Mom's Bad Bet", Tracks: tr},
+		{ID: 2, Title: "Breaking Bad Pilot", Tracks: tr},
+		{ID: 3, Title: "Something", Studio: "Breaking Studio", Performers: []string{"Pilot Person"}, Tracks: tr},
+		{ID: 4, Tracks: tr},
+	}}, &qs)
+	out, err := Search(context.Background(), client.New(srv.URL, ""), "Breaking Bad S01E01 Pilot", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []int64
+	for _, h := range out.Hits {
+		ids = append(ids, h.Release.ID)
+	}
+	if !slices.Equal(ids, []int64{2, 3, 4}) || out.Weak != 1 {
+		t.Errorf("ids = %v, weak = %d; want [2 3 4], 1", ids, out.Weak)
+	}
+}
+
+func TestSearch_SingleWordKeepsEverything(t *testing.T) {
+	var qs []string
+	srv := searchServer(t, client.SearchResult{Releases: []client.Release{
+		{ID: 1, Title: "Unrelated", Tracks: []client.TrackSummary{{ID: 1, Lang: "en"}}},
+	}}, &qs)
+	out, err := Search(context.Background(), client.New(srv.URL, ""), "bad", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Hits) != 1 || out.Weak != 0 {
+		t.Errorf("out = %+v", out)
+	}
+}
+
 func TestSearch_EmptyQuery(t *testing.T) {
 	if _, err := Search(context.Background(), client.New("http://unused", ""), "  ", "", nil); err == nil {
 		t.Fatal("want an error")

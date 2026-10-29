@@ -83,6 +83,11 @@ func (u *appUI) renderSearchResults(into *fyne.Container, videoPath string, out 
 	into.RemoveAll()
 	if len(out.Hits) == 0 {
 		into.Add(widget.NewLabel(core.NoSearchResultsMessage))
+		if out.Weak > 0 {
+			l := widget.NewLabel(core.SearchWeakNote(out.Weak))
+			l.Wrapping = fyne.TextWrapWord
+			into.Add(l)
+		}
 		into.Refresh()
 		return
 	}
@@ -124,8 +129,13 @@ func (u *appUI) renderSearchResults(into *fyne.Container, videoPath string, out 
 }
 
 func truncatedNote(out core.SearchOutcome) string {
-	if out.Truncated {
+	switch {
+	case out.Truncated && out.Weak > 0:
+		return core.SearchTruncatedNote + "\n" + core.SearchWeakNote(out.Weak)
+	case out.Truncated:
 		return core.SearchTruncatedNote
+	case out.Weak > 0:
+		return core.SearchWeakNote(out.Weak)
 	}
 	return ""
 }

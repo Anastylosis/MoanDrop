@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/Anastylosis/MoanSubs/client"
 )
@@ -68,6 +69,43 @@ type SearchHit struct {
 type SearchOutcome struct {
 	Hits      []SearchHit `json:"hits"`
 	Truncated bool        `json:"truncated"`
+	// Weak counts results dropped for sharing too few words with the query.
+	Weak int `json:"weak,omitempty"`
+}
+
+// SearchWeakNote says how many loose results were left out.
+func SearchWeakNote(n int) string {
+	return fmt.Sprintf("%d more result(s) shared only a word or so with the search and were left out; try fewer, more distinctive words", n)
+}
+
+func searchWords(s string) map[string]bool {
+	words := map[string]bool{}
+	for _, w := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }) {
+		if len([]rune(w)) >= 2 {
+			words[w] = true
+		}
+	}
+	return words
+}
+
+// strongEnough keeps a release sharing at least half the query's words. The
+// server ranks any single shared word as a hit, which for a filename-derived
+// query ("Breaking Bad S01E01 Pilot") is mostly noise.
+func strongEnough(query map[string]bool, r client.Release) bool {
+	if len(query) < 2 {
+		return true
+	}
+	have := searchWords(r.Title + " " + r.Studio + " " + strings.Join(r.Performers, " "))
+	if len(have) == 0 {
+		return true
+	}
+	shared := 0
+	for w := range query {
+		if have[w] {
+			shared++
+		}
+	}
+	return shared*2 >= len(query)
 }
 
 // Search runs the catalogue search, retrying a 429. The server's release
@@ -86,8 +124,13 @@ func Search(ctx context.Context, c *client.Client, q, lang string, onWait func(t
 		return SearchOutcome{}, err
 	}
 	out := SearchOutcome{Truncated: res.Truncated}
+	query := searchWords(q)
 	for _, r := range res.Releases {
 		if len(r.Tracks) == 0 {
+			continue
+		}
+		if !strongEnough(query, r) {
+			out.Weak++
 			continue
 		}
 		tracks := append([]client.TrackSummary(nil), r.Tracks...)

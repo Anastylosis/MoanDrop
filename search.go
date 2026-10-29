@@ -61,6 +61,9 @@ func runSearch(ctx context.Context, query, lang, writeTo string, trackID int64, 
 	if len(out.Hits) == 0 {
 		if !flagJSON {
 			fmt.Println(core.NoSearchResultsMessage)
+			if out.Weak > 0 {
+				fmt.Println(core.SearchWeakNote(out.Weak))
+			}
 		}
 		os.Exit(exitNoMatch)
 	}
@@ -102,6 +105,9 @@ func printSearch(out core.SearchOutcome) {
 	}
 	if out.Truncated {
 		fmt.Println("\n" + core.SearchTruncatedNote)
+	}
+	if out.Weak > 0 {
+		fmt.Println("\n" + core.SearchWeakNote(out.Weak))
 	}
 	fmt.Println("\n" + core.SearchSyncUnknown)
 	if sawGenerated {
