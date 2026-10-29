@@ -27,6 +27,8 @@ jobs:
     with:
       binary-name: moandrop
       main-package: .
+      # CI already ran the full suite on the tagged commit; don't wait for it twice.
+      ci-workflow: ci.yml
       # The category must already exist on the repo (Discussions on), or
       # finalizing the release fails after the artifacts are built.
       discussion-category: Announcements
