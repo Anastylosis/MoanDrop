@@ -7,7 +7,7 @@ require (
 	github.com/Anastylosis/MoanSubs v0.7.0
 	github.com/Anastylosis/mediahash v0.1.0
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/text v0.43.0
+	golang.org/x/text v0.44.0
 )
 
 require (
